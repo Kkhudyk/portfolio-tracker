@@ -277,7 +277,53 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cards-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* ─── INVEST BLOCK ─── */
+.invest-block {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
   margin-bottom: 1.5rem;
+}
+
+.invest-total {
+  flex: 1;
+  padding: 1.4rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.invest-total-value {
+  font-family: var(--font-mono);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.invest-divider {
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.invest-pnl {
+  flex: 1;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
 }
 
 .card {
@@ -427,4 +473,7 @@ tbody td {
   thead th, tbody td { padding: .65rem .75rem; }
   .table-wrap { overflow-x: auto; }
   table { min-width: 520px; }
+  .cards-grid-3 { grid-template-columns: 1fr; }
+  .invest-block { flex-direction: column; }
+  .invest-divider { width: auto; height: 1px; }
 }

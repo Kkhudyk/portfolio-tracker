@@ -169,8 +169,8 @@ function renderDashboard(summary, assets, cash) {
       </div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="cards-grid">
+    <!-- Row 1: Free Cash / Assets / Invested -->
+    <div class="cards-grid cards-grid-3">
       <div class="card">
         <div class="card-label"><span class="emoji">💵</span> Free Cash</div>
         <div class="card-value">${fmtUSD(freeCash)}</div>
@@ -186,7 +186,17 @@ function renderDashboard(summary, assets, cash) {
         <div class="card-value">${fmtUSD(invested)}</div>
         <div class="card-sub">Capital deployed</div>
       </div>
-      <div class="${pnlCardClass}">
+    </div>
+
+    <!-- Row 2: Investment portfolio block -->
+    <div class="invest-block">
+      <div class="invest-total">
+        <div class="card-label"><span class="emoji">💼</span> Investment Portfolio</div>
+        <div class="invest-total-value">${fmtUSD(invested)}</div>
+        <div class="card-sub">Total market value</div>
+      </div>
+      <div class="invest-divider"></div>
+      <div class="${pnlCardClass} invest-pnl">
         <div class="card-label"><span class="emoji">${pnlPos ? "📗" : "📉"}</span> P&amp;L</div>
         <div class="card-value">${pnlSign(totalPnl)}${fmtUSD(totalPnl)}</div>
         <div class="card-sub">${pnlSign(pnlPct)}${fmt(pnlPct)}% on invested capital</div>
