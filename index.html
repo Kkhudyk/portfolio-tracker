@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── LOGIN ── -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">₿</div>
+      <h1>Portfolio</h1>
+      <p>Sign in to view your dashboard</p>
+      <form id="login-form">
+        <div class="input-group">
+          <span class="icon">🔑</span>
+          <input
+            id="password-input"
+            type="password"
+            placeholder="Enter password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <button class="btn-primary" type="submit">Sign in</button>
+        <div class="login-error" id="login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── APP ── -->
+  <div id="app">
+    <header>
+      <div class="header-brand">
+        <div class="dot"></div>
+        Portfolio
+      </div>
+      <div class="header-actions">
+        <span class="last-updated" id="last-updated"></span>
+        <button class="btn-icon" id="btn-refresh">
+          ↻ Refresh
+        </button>
+        <button class="btn-icon btn-logout" id="btn-logout">
+          Sign out
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div id="dashboard-content"></div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
