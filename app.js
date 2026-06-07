@@ -230,36 +230,72 @@ async function loadDashboard() {
   renderSkeleton();
   try {
     const [assetsData, cashData, dashData] = await Promise.all([
-      fetchRange("📊 Assets!A2:E100"),
-      fetchRange("💵 Free Cash!A2:C100"),
-      fetchRange("🎯 Dashboard!A1:B20"),
+      // A–K: rows 4+ (row 1-3 are headers); fetch generously
+      fetchRange("📊 Assets!A4:K200"),
+      // B–G: rows 7+ (rows 1-6 are headers/labels)
+      fetchRange("💵 Free Cash!B7:G200"),
+      // Full dashboard sheet to search for key rows
+      fetchRange("🎯 Dashboard!A1:Z50"),
     ]);
 
-    // Parse assets: Asset Name, Type, Current Value ($), P&L ($), P&L (%)
+    // ── Assets ──
+    // Cols: A=Name, B=Type, C=Account, D=Entry Date, E=Entry Price,
+    //       F=Qty, G=Total Invested, H=Current Price, I=Current Value,
+    //       J=P&L($), K=P&L(%)
     const assets = (assetsData.values || [])
-      .filter((r) => r[0])
+      .filter((r) => {
+        const name = (r[0] || "").trim();
+        return name && name !== "Asset Name" && name !== "TOTAL";
+      })
       .map((r) => ({
         name:   r[0] || "",
         type:   r[1] || "",
-        value:  r[2] || "",
-        pnl:    r[3] || "",
-        pnlPct: r[4] || "",
+        value:  r[8] || "",   // col I = Current Value
+        pnl:    r[9] || "",   // col J = P&L($)
+        pnlPct: r[10] || "",  // col K = P&L(%)
       }));
 
-    // Parse free cash: Account, Category, Value USD
+    // ── Free Cash ──
+    // Cols (offset B): B=Account, C=Category, D=Currency, E=Amount, F=Rate, G=Value USD
+    // r[0]=Account, r[1]=Category, r[2]=Currency, r[3]=Amount, r[4]=Rate, r[5]=Value USD
     const cash = (cashData.values || [])
-      .filter((r) => r[0])
+      .filter((r) => {
+        const account  = (r[0] || "").trim();
+        const category = (r[1] || "").trim();
+        // skip empty rows, section-header rows that contain 🟢, and rows with no account
+        return account && !category.includes("🟢") && !account.includes("🟢");
+      })
       .map((r) => ({
         account:  r[0] || "",
         category: r[1] || "",
-        value:    r[2] || "",
+        value:    r[5] || "",  // col G = Value USD
       }));
 
-    // Parse dashboard summary key-value pairs
-    const summary = {};
-    (dashData.values || []).forEach((r) => {
-      if (r[0] && r[1] !== undefined) summary[r[0].trim()] = r[1];
-    });
+    // ── Dashboard summary ──
+    // Search all rows for keywords; value is typically in the next non-empty cell
+    const allRows = dashData.values || [];
+
+    function findRowValue(keyword) {
+      for (const row of allRows) {
+        for (let i = 0; i < row.length; i++) {
+          if (String(row[i] || "").toUpperCase().includes(keyword.toUpperCase())) {
+            // return first numeric-looking cell after the match
+            for (let j = i + 1; j < row.length; j++) {
+              const v = String(row[j] || "").trim();
+              if (v && !isNaN(parseNum(v))) return v;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    const summary = {
+      "Net Worth":  findRowValue("TOTAL NET WORTH"),
+      "Free Cash":  findRowValue("TOTAL FREE CASH"),
+      "Assets":     findRowValue("TOTAL ASSETS"),
+      "Invested":   findRowValue("TOTAL Invested") || findRowValue("TOTAL INVESTED"),
+    };
 
     renderDashboard(summary, assets, cash);
   } catch (err) {
