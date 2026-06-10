@@ -308,21 +308,22 @@ function renderDashboard(summary, assets, cash) {
 
   // Draw charts after DOM update
   requestAnimationFrame(() => {
-    drawDonut(netWorth, freeCash, assetsVal, invested);
+    drawDonut(netWorth, freeCash, assetsVal, invested, staking);
     drawBarChart(assets);
   });
 }
 
 // ─── Chart: Donut ─────────────────────────────────────────────────────────────
 
-function drawDonut(netWorth, freeCash, assetsVal, invested) {
+function drawDonut(netWorth, freeCash, assetsVal, invested, staking) {
   const canvas = document.getElementById("donut-canvas");
   if (!canvas) return;
 
   const segments = [
     { label: "Free Cash", value: freeCash,  color: "#0066FF" },
     { label: "Assets",    value: assetsVal, color: "#00C805" },
-    { label: "Invested",  value: invested,  color: "#7C3AED" },
+    { label: "Crypto",    value: invested,  color: "#FF3B30" },
+    { label: "Staking",   value: staking,   color: "#7C3AED" },
   ].filter(s => s.value > 0);
 
   const total = segments.reduce((s, x) => s + x.value, 0);
