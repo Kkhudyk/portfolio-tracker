@@ -54,7 +54,8 @@ async function fetchRange(range) {
   const res = await fetch(`/api/sheets?range=${encodeURIComponent(range)}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    const detail = err.detail ? ` — ${err.detail}` : "";
+    throw new Error((err.error || `HTTP ${res.status}`) + detail);
   }
   return res.json();
 }
@@ -476,21 +477,48 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // ─── Staking: Load ────────────────────────────────────────────────────────────
 
 async function loadStaking() {
-  if (stakingLoaded) return;          // cached after first load
+  if (stakingLoaded) return;
   const el = document.getElementById("staking-content");
   el.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading investment log…</p></div>`;
-  try {
-    // Fetch entire Investment log sheet — row 1 = headers
-    const data = await fetchRange("Investment log!A1:Z300");
-    const rows = data.values || [];
-    if (rows.length < 2) {
-      el.innerHTML = `<div class="error-state"><div class="err-icon">📭</div><p>No data found in "Investment log" sheet.</p></div>`;
-      return;
+
+  // Try several possible sheet name variants
+  const candidates = [
+    "Investment log",
+    "Investment Log",
+    "investment log",
+    "Investments",
+    "📋 Investment log",
+    "Investment",
+  ];
+
+  let data = null;
+  let lastErr = "";
+
+  for (const name of candidates) {
+    try {
+      data = await fetchRange(`${name}!A1:Z300`);
+      if ((data.values || []).length >= 1) break; // found it
+    } catch (e) {
+      lastErr = e.message;
+      data = null;
     }
-    renderStaking(rows);
+  }
+
+  if (!data || (data.values || []).length < 2) {
+    el.innerHTML = `<div class="error-state">
+      <div class="err-icon">📭</div>
+      <p><strong>Sheet not found</strong><br>
+      Tried: ${candidates.map(n => `"${n}"`).join(", ")}<br><br>
+      <span style="font-size:.78rem;color:var(--text-faint)">${lastErr}</span></p>
+    </div>`;
+    return;
+  }
+
+  try {
+    renderStaking(data.values);
     stakingLoaded = true;
   } catch (err) {
-    el.innerHTML = `<div class="error-state"><div class="err-icon">⚠️</div><p><strong>Failed to load</strong><br>${err.message}</p></div>`;
+    el.innerHTML = `<div class="error-state"><div class="err-icon">⚠️</div><p><strong>Render error</strong><br>${err.message}</p></div>`;
   }
 }
 
