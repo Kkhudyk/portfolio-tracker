@@ -313,11 +313,13 @@ function renderDashboard(summary, assets, cash) {
       </div>
       <div class="liquidity-card">
         <div class="liquidity-bars">${liqBars || '<p style="color:var(--text-muted);font-size:.875rem">No categories found</p>'}</div>
-        <div class="liq-divider"></div>
-        <table>
-          <thead><tr><th>Account</th><th>Category</th><th>Value (USD)</th></tr></thead>
-          <tbody>${cashRows || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:1.5rem">No entries</td></tr>'}</tbody>
-        </table>
+        <div class="liq-accounts-tooltip">
+          <div class="liq-divider"></div>
+          <table>
+            <thead><tr><th>Account</th><th>Category</th><th>Value (USD)</th></tr></thead>
+            <tbody>${cashRows || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:1.5rem">No entries</td></tr>'}</tbody>
+          </table>
+        </div>
       </div>
     </div>
 
