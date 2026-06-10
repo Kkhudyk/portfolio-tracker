@@ -481,44 +481,44 @@ async function loadStaking() {
   const el = document.getElementById("staking-content");
   el.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading investment log…</p></div>`;
 
-  // Try several possible sheet name variants
-  const candidates = [
-    "Investment log",
-    "Investment Log",
-    "investment log",
-    "Investments",
-    "📋 Investment log",
-    "Investment",
-  ];
-
-  let data = null;
-  let lastErr = "";
-
-  for (const name of candidates) {
-    try {
-      data = await fetchRange(`${name}!A1:Z300`);
-      if ((data.values || []).length >= 1) break; // found it
-    } catch (e) {
-      lastErr = e.message;
-      data = null;
-    }
-  }
-
-  if (!data || (data.values || []).length < 2) {
-    el.innerHTML = `<div class="error-state">
-      <div class="err-icon">📭</div>
-      <p><strong>Sheet not found</strong><br>
-      Tried: ${candidates.map(n => `"${n}"`).join(", ")}<br><br>
-      <span style="font-size:.78rem;color:var(--text-faint)">${lastErr}</span></p>
-    </div>`;
-    return;
-  }
-
   try {
-    renderStaking(data.values);
+    // Step 1: get all sheet titles from spreadsheet metadata
+    const meta = await fetchRange("__sheets__");
+    const sheets = meta.sheets || [];
+
+    // Step 2: find the investment/staking sheet by gid=1013154586 first,
+    // then fall back to title keyword match
+    const TARGET_GID = 1013154586;
+    const KEYWORDS   = ["invest", "staking", "log"];
+
+    let sheetName =
+      (sheets.find(s => s.sheetId === TARGET_GID) ||
+       sheets.find(s => KEYWORDS.some(k => s.title.toLowerCase().includes(k))) ||
+       null)?.title;
+
+    if (!sheetName) {
+      const allNames = sheets.map(s => `"${s.title}" (gid:${s.sheetId})`).join(", ");
+      el.innerHTML = `<div class="error-state">
+        <div class="err-icon">📭</div>
+        <p><strong>Investment sheet not found</strong><br>
+        Available sheets: ${allNames}</p>
+      </div>`;
+      return;
+    }
+
+    // Step 3: fetch the data
+    const data = await fetchRange(`${sheetName}!A1:Z300`);
+    const rows = data.values || [];
+
+    if (rows.length < 2) {
+      el.innerHTML = `<div class="error-state"><div class="err-icon">📭</div><p>Sheet "${sheetName}" is empty.</p></div>`;
+      return;
+    }
+
+    renderStaking(rows);
     stakingLoaded = true;
   } catch (err) {
-    el.innerHTML = `<div class="error-state"><div class="err-icon">⚠️</div><p><strong>Render error</strong><br>${err.message}</p></div>`;
+    el.innerHTML = `<div class="error-state"><div class="err-icon">⚠️</div><p><strong>Failed to load</strong><br>${err.message}</p></div>`;
   }
 }
 
