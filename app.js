@@ -805,19 +805,22 @@ async function loadDashboard() {
       }));
 
     // ── Compute summary from raw data ──
-    // Entries with category "Staking" / "стейкінг" / "invest" / "locked"
-    // are shown as Staking card, not counted in Free Cash
-    const isStakingCat = (cat) => {
+    // Free Cash = ONLY known 4 categories: Liquid, Incoming, Debt, Locked
+    // Everything else (Staking, empty, unknown) → Staking card
+    const isFreeCashCat = (cat) => {
       const lo = (cat || "").toLowerCase().trim();
-      return lo.includes("stak") || lo.includes("стейк") || lo.includes("інвест") || lo === "investment" || lo === "locked";
+      return lo.includes("liquid")   || lo.includes("ліквід")  ||
+             lo.includes("incoming") || lo.includes("приход")  || lo.includes("вхід") ||
+             lo.includes("debt")     || lo.includes("борг")    ||
+             lo.includes("locked")   || lo.includes("заблок");
     };
 
     let freeCashTotal = 0, stakingCashTotal = 0;
     cash.forEach((c) => {
       const v = parseNum(c.value);
       if (isNaN(v)) return;
-      if (isStakingCat(c.category)) stakingCashTotal += v;
-      else freeCashTotal += v;
+      if (isFreeCashCat(c.category)) freeCashTotal += v;
+      else stakingCashTotal += v;
     });
 
     let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
