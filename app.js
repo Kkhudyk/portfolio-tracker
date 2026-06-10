@@ -790,7 +790,8 @@ async function loadDashboard() {
     // ── Free Cash ──
     // Cols (starting at B): r[0]=Account, r[1]=Category, r[2]=Currency,
     //                        r[3]=Amount, r[4]=Rate, r[5]=Value USD
-    const SKIP_MARKERS = ["🟢", "🟣", "🔴", "🔵", "total"];
+    // Skip section-header / total rows (account field starts with a color circle emoji or keyword)
+    const SKIP_MARKERS = ["🟢", "🟣", "🔴", "🔵", "🟤", "total", "staking"];
     const cash = (cashData.values || [])
       .filter((r) => {
         const account = (r[0] || "").trim();
@@ -805,8 +806,6 @@ async function loadDashboard() {
       }));
 
     // ── Compute summary from raw data ──
-    // Free Cash = ONLY known 4 categories: Liquid, Incoming, Debt, Locked
-    // Everything else (Staking, empty, unknown) → Staking card
     const isFreeCashCat = (cat) => {
       const lo = (cat || "").toLowerCase().trim();
       return lo.includes("liquid")   || lo.includes("ліквід")  ||
@@ -814,13 +813,18 @@ async function loadDashboard() {
              lo.includes("debt")     || lo.includes("борг")    ||
              lo.includes("locked")   || lo.includes("заблок");
     };
+    const isStakingCat = (cat) => {
+      const lo = (cat || "").toLowerCase().trim();
+      return lo.includes("stak") || lo.includes("стейк");
+    };
 
     let freeCashTotal = 0, stakingCashTotal = 0;
     cash.forEach((c) => {
       const v = parseNum(c.value);
       if (isNaN(v)) return;
-      if (isFreeCashCat(c.category)) freeCashTotal += v;
-      else stakingCashTotal += v;
+      if (isStakingCat(c.category))      stakingCashTotal += v;  // explicitly Staking
+      else if (isFreeCashCat(c.category)) freeCashTotal   += v;  // 4 known categories
+      // unknown/empty → ignored (section headers already filtered above)
     });
 
     let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
