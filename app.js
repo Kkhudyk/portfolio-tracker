@@ -145,13 +145,11 @@ function renderDashboard(summary, assets, cash) {
   const freeCash  = summary.freeCash;
   const assetsVal = summary.assets;
   const invested  = summary.invested;
+  const staking   = summary.staking;   // from Investment log
   const totalPnl  = summary.pnl;
 
   const costBasis = invested - totalPnl;
   const pnlPct    = costBasis !== 0 ? (totalPnl / costBasis) * 100 : 0;
-  const pnlPos    = totalPnl >= 0;
-  const pnlArrow  = pnlPos ? "↑" : "↓";
-  const pnlCls    = pnlPos ? "pnl-pos" : "pnl-neg";
 
   const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   document.getElementById("last-updated").textContent = `Updated ${now}`;
@@ -232,10 +230,7 @@ function renderDashboard(summary, assets, cash) {
     <div class="hero">
       <div class="hero-label">Net Worth</div>
       <div class="hero-value">${fmtUSD(netWorth)}</div>
-      <div class="hero-pnl ${pnlCls}">
-        ${pnlArrow} ${pnlSign(totalPnl)}${fmtUSD(totalPnl)} (${pnlSign(pnlPct)}${fmt(pnlPct)}%)
-      </div>
-      <div class="hero-mini-cards">
+      <div class="hero-mini-cards hero-mini-cards-4">
         <div class="mini-card">
           <div class="mini-card-label">💵 Free Cash</div>
           <div class="mini-card-value">${fmtUSD(freeCash)}</div>
@@ -245,8 +240,13 @@ function renderDashboard(summary, assets, cash) {
           <div class="mini-card-value">${fmtUSD(assetsVal)}</div>
         </div>
         <div class="mini-card">
-          <div class="mini-card-label">📈 Invested</div>
-          <div class="mini-card-value">${fmtUSD(invested)}</div>
+          <div class="mini-card-label">📉 Crypto Investment</div>
+          <div class="mini-card-value ${totalPnl < 0 ? "mini-neg" : ""}">${fmtUSD(invested)}</div>
+          <div class="mini-card-sub ${totalPnl < 0 ? "mini-neg" : "mini-pos"}">${pnlSign(totalPnl)}${fmtUSD(totalPnl)} (${pnlSign(pnlPct)}${fmt(pnlPct)}%)</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-label">💎 Crypto Staking</div>
+          <div class="mini-card-value">${staking > 0 ? fmtUSD(staking) : "—"}</div>
         </div>
       </div>
     </div>
@@ -719,14 +719,56 @@ function renderStaking(rows) {
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
+// Fetch staking total from Investment log (silent fail)
+async function fetchStakingTotal() {
+  try {
+    const meta   = await fetchRange("__sheets__");
+    const sheets = meta.sheets || [];
+    const TARGET_GID = 1013154586;
+    const KEYWORDS   = ["invest", "staking", "log"];
+    const sheetName  = (
+      sheets.find(s => s.sheetId === TARGET_GID) ||
+      sheets.find(s => KEYWORDS.some(k => s.title.toLowerCase().includes(k)))
+    )?.title;
+    if (!sheetName) return 0;
+
+    const data = await fetchRange(`${sheetName}!A1:Z300`);
+    const rows  = data.values || [];
+    if (rows.length < 2) return 0;
+
+    // Find header row + amount column (same logic as renderStaking)
+    const COL_KW = ["account","instrument","amount","apy","apr","date","status","income","profit","earn","entry","exit","platform","name","asset","rate","currency"];
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const matches = rows[i].filter(c => COL_KW.some(k => (c||"").toLowerCase().includes(k))).length;
+      if (matches >= 2) { headerIdx = i; break; }
+    }
+    const headers = rows[headerIdx].map(h => (h||"").trim().toLowerCase());
+    const iAmount = headers.findIndex(h => ["amount","principal","invested","capital","deposit"].some(k => h.includes(k)));
+    if (iAmount < 0) return 0;
+
+    const SKIP = ["total monthly","status legend","log every","►","•"];
+    let total = 0;
+    rows.slice(headerIdx + 1).forEach(r => {
+      const first = (r[0]||r[1]||r[2]||"").toLowerCase();
+      if (SKIP.some(m => first.includes(m))) return;
+      if (!r.some(c => (c||"").trim())) return;
+      const v = parseNum(r[iAmount]);
+      if (!isNaN(v)) total += v;
+    });
+    return total;
+  } catch { return 0; }
+}
+
 async function loadDashboard() {
   renderSkeleton();
   try {
-    const [assetsData, cashData] = await Promise.all([
+    const [assetsData, cashData, stakingTotal] = await Promise.all([
       // A–K: rows 4+ (rows 1-3 are headers)
       fetchRange("📊 Assets!A4:K200"),
       // B–G: rows 7+ (rows 1-6 are headers/labels)
       fetchRange("💵 Free Cash!B7:G200"),
+      fetchStakingTotal(),
     ]);
 
     // ── Assets ──
@@ -781,11 +823,12 @@ async function loadDashboard() {
     const netWorth = freeCashTotal + assetsTotal + investedTotal;
 
     const summary = {
-      netWorth:  netWorth,
-      freeCash:  freeCashTotal,
-      assets:    assetsTotal,
-      invested:  investedTotal,
-      pnl:       pnlTotal,
+      netWorth: netWorth,
+      freeCash: freeCashTotal,
+      assets:   assetsTotal,
+      invested: investedTotal,
+      pnl:      pnlTotal,
+      staking:  stakingTotal,
     };
 
     renderDashboard(summary, assets, cash);

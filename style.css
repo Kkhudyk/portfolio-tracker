@@ -353,6 +353,8 @@ main {
   gap: .35rem;
 }
 
+.hero-mini-cards-4 { grid-template-columns: repeat(4, 1fr); max-width: 900px; }
+
 .mini-card-value {
   font-family: var(--font-mono);
   font-size: 1.1rem;
@@ -360,6 +362,16 @@ main {
   color: var(--text);
   letter-spacing: -.02em;
 }
+
+.mini-card-sub {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  font-weight: 600;
+  margin-top: .15rem;
+}
+
+.mini-pos { color: var(--green); }
+.mini-neg { color: var(--red); }
 
 /* ═══════════════════════════════════════
    CHARTS GRID
@@ -839,7 +851,8 @@ tbody td {
   .staking-pos-card { grid-template-columns: 1fr 1fr; row-gap: .75rem; }
 
   .hero-value { font-size: 2.25rem; }
-  .hero-mini-cards { grid-template-columns: 1fr; max-width: 100%; gap: .6rem; }
+  .hero-mini-cards { grid-template-columns: 1fr 1fr; max-width: 100%; gap: .6rem; }
+  .hero-mini-cards-4 { grid-template-columns: 1fr 1fr; }
 
   .charts-grid { grid-template-columns: 1fr; }
 
