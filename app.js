@@ -805,13 +805,18 @@ async function loadDashboard() {
       }));
 
     // ── Compute summary from raw data ──
-    // Entries with category "Staking" are counted separately, not in Free Cash
+    // Entries with category "Staking" / "стейкінг" / "invest" / "locked"
+    // are shown as Staking card, not counted in Free Cash
+    const isStakingCat = (cat) => {
+      const lo = (cat || "").toLowerCase().trim();
+      return lo.includes("stak") || lo.includes("стейк") || lo.includes("інвест") || lo === "investment" || lo === "locked";
+    };
+
     let freeCashTotal = 0, stakingCashTotal = 0;
     cash.forEach((c) => {
-      const v   = parseNum(c.value);
+      const v = parseNum(c.value);
       if (isNaN(v)) return;
-      const cat = (c.category || "").toLowerCase();
-      if (cat.includes("staking")) stakingCashTotal += v;
+      if (isStakingCat(c.category)) stakingCashTotal += v;
       else freeCashTotal += v;
     });
 
@@ -834,7 +839,7 @@ async function loadDashboard() {
       assets:   assetsTotal,
       invested: investedTotal,
       pnl:      pnlTotal,
-      staking:  stakingCashTotal + stakingTotal,  // cash staking + investment log
+      staking:  stakingCashTotal, // only from Free Cash "Staking" category — no double-count with Investment log
     };
 
     renderDashboard(summary, assets, cash);
