@@ -38,7 +38,15 @@ document.getElementById("btn-logout").addEventListener("click", () => {
   showLogin();
 });
 
-document.getElementById("btn-refresh").addEventListener("click", loadDashboard);
+// declared early so Refresh listener can reference it
+let activeTab    = "dashboard";
+let stakingLoaded = false;
+
+document.getElementById("btn-refresh").addEventListener("click", () => {
+  stakingLoaded = false;
+  if (activeTab === "dashboard") loadDashboard();
+  else loadStaking();
+});
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -98,10 +106,11 @@ function pnlSign(v) {
 // ─── Category config ─────────────────────────────────────────────────────────
 
 const CAT_CFG = {
-  liquid:   { emoji: "🟢", label: "Liquid",   color: "#00C805", bg: "#E6FFE6" },
-  incoming: { emoji: "🟣", label: "Incoming", color: "#7C3AED", bg: "#F0EBFF" },
-  debt:     { emoji: "🔴", label: "Debt",     color: "#FF3B30", bg: "#FFE5E3" },
-  locked:   { emoji: "🔵", label: "Locked",   color: "#0066FF", bg: "#E0EDFF" },
+  liquid:     { emoji: "🟢", label: "Liquid",     color: "#00C805", bg: "#E6FFE6" },
+  incoming:   { emoji: "🟣", label: "Incoming",   color: "#7C3AED", bg: "#F0EBFF" },
+  debt:       { emoji: "🔴", label: "Debt",       color: "#FF3B30", bg: "#FFE5E3" },
+  locked:     { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
+  investment: { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
 };
 
 function getCatCfg(cat) {
@@ -447,6 +456,202 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 1) + "…" : str;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.tab;
+    if (tab === activeTab) return;
+    activeTab = tab;
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("dashboard-content").style.display = tab === "dashboard" ? "" : "none";
+    document.getElementById("staking-content").style.display   = tab === "staking"   ? "" : "none";
+    if (tab === "staking") loadStaking();
+  });
+});
+
+// ─── Staking: Load ────────────────────────────────────────────────────────────
+
+async function loadStaking() {
+  if (stakingLoaded) return;          // cached after first load
+  const el = document.getElementById("staking-content");
+  el.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading investment log…</p></div>`;
+  try {
+    // Fetch entire Investment log sheet — row 1 = headers
+    const data = await fetchRange("Investment log!A1:Z300");
+    const rows = data.values || [];
+    if (rows.length < 2) {
+      el.innerHTML = `<div class="error-state"><div class="err-icon">📭</div><p>No data found in "Investment log" sheet.</p></div>`;
+      return;
+    }
+    renderStaking(rows);
+    stakingLoaded = true;
+  } catch (err) {
+    el.innerHTML = `<div class="error-state"><div class="err-icon">⚠️</div><p><strong>Failed to load</strong><br>${err.message}</p></div>`;
+  }
+}
+
+// ─── Staking: Render ──────────────────────────────────────────────────────────
+
+function renderStaking(rows) {
+  const headers = rows[0].map(h => (h || "").trim());
+  const data    = rows.slice(1).filter(r => r.some(c => (c || "").trim()));
+
+  // ── Column index helpers ──
+  const ci = (keywords) => {
+    const kw = keywords.map(k => k.toLowerCase());
+    return headers.findIndex(h => kw.some(k => h.toLowerCase().includes(k)));
+  };
+
+  const iName     = ci(["name", "asset", "token", "coin", "project"]);
+  const iPlatform = ci(["platform", "protocol", "exchange", "source", "where"]);
+  const iAmount   = ci(["amount", "principal", "invested", "capital", "deposit", "invested ($)", "amount ($)"]);
+  const iProfit   = ci(["profit", "earn", "return", "income", "reward", "yield", "gain"]);
+  const iApy      = ci(["apy", "apr", "rate", "%", "interest"]);
+  const iStart    = ci(["start", "entry", "open", "date", "from"]);
+  const iEnd      = ci(["end", "exit", "close", "maturity", "until", "to"]);
+  const iStatus   = ci(["status", "state", "active", "open"]);
+  const iTotal    = ci(["total", "current value", "value", "balance"]);
+  const iDuration = ci(["duration", "days", "period", "term"]);
+
+  // ── Compute summary ──
+  let totalInvested = 0, totalProfit = 0, activeCount = 0;
+
+  data.forEach(r => {
+    if (iAmount >= 0) {
+      const v = parseNum(r[iAmount]);
+      if (!isNaN(v)) totalInvested += v;
+    }
+    if (iProfit >= 0) {
+      const v = parseNum(r[iProfit]);
+      if (!isNaN(v)) totalProfit += v;
+    }
+    if (iStatus >= 0) {
+      const s = (r[iStatus] || "").toLowerCase();
+      if (s.includes("active") || s.includes("open") || s.includes("✅") || s.includes("running")) activeCount++;
+    } else {
+      activeCount = data.length; // assume all active if no status col
+    }
+  });
+
+  const roi = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
+  const profitPos = totalProfit >= 0;
+
+  // ── Build position cards ──
+  const posCards = data.map(r => {
+    const name     = iName     >= 0 ? (r[iName]     || "—") : "—";
+    const platform = iPlatform >= 0 ? (r[iPlatform] || "")  : "";
+    const amount   = iAmount   >= 0 ? parseNum(r[iAmount])  : NaN;
+    const profit   = iProfit   >= 0 ? parseNum(r[iProfit])  : NaN;
+    const apy      = iApy      >= 0 ? (r[iApy]      || "")  : "";
+    const startRaw = iStart    >= 0 ? (r[iStart]    || "")  : "";
+    const endRaw   = iEnd      >= 0 ? (r[iEnd]      || "")  : "";
+    const statusRaw= iStatus   >= 0 ? (r[iStatus]   || "")  : "Active";
+
+    const pPos = isNaN(profit) || profit >= 0;
+    const statusLo = statusRaw.toLowerCase();
+    const statusClass = statusLo.includes("active") || statusLo.includes("open") || statusLo.includes("✅") || statusRaw === ""
+      ? "status-active"
+      : statusLo.includes("pend") ? "status-pending" : "status-closed";
+    const statusLabel = statusRaw || "Active";
+
+    // Timing progress (days elapsed / total duration)
+    let timingHTML = "";
+    if (startRaw && endRaw) {
+      const start   = new Date(startRaw);
+      const end     = new Date(endRaw);
+      const now     = new Date();
+      const total   = end - start;
+      const elapsed = now - start;
+      const pct     = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+      const daysLeft= Math.max(0, Math.ceil((end - now) / 86400000));
+      const barColor = pct >= 80 ? "#FF3B30" : pct >= 50 ? "#F59E0B" : "#00C805";
+      timingHTML = `
+        <div class="timing-wrap">
+          <div class="timing-label">${daysLeft > 0 ? `${daysLeft}d left` : "Ended"} · ${pct.toFixed(0)}% elapsed</div>
+          <div class="timing-track"><div class="timing-bar" style="width:${pct}%;background:${barColor}"></div></div>
+        </div>`;
+    } else if (endRaw) {
+      timingHTML = `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">Exit: ${endRaw}</div>`;
+    }
+
+    return `
+    <div class="staking-pos-card">
+      <div>
+        <div class="staking-pos-name">${name}</div>
+        ${platform ? `<div class="staking-pos-platform">${platform}</div>` : ""}
+        <div style="margin-top:.5rem"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+      </div>
+      <div>
+        <div class="staking-pos-col-label">Invested</div>
+        <div class="staking-pos-col-value">${isNaN(amount) ? "—" : fmtUSD(amount)}</div>
+      </div>
+      <div>
+        <div class="staking-pos-col-label">Profit</div>
+        <div class="staking-pos-col-value ${pPos ? "pos" : "neg"}">${isNaN(profit) ? "—" : pnlSign(profit) + fmtUSD(profit)}</div>
+      </div>
+      <div>
+        <div class="staking-pos-col-label">${iApy >= 0 ? "APY / Rate" : "Exit date"}</div>
+        <div class="staking-pos-col-value">${iApy >= 0 ? (apy || "—") : (endRaw || "—")}</div>
+      </div>
+      <div>
+        <div class="staking-pos-col-label">Timeline</div>
+        ${timingHTML || `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">${startRaw || "—"}${endRaw ? " → " + endRaw : ""}</div>`}
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── Full raw table (all columns) ──
+  const thCells  = headers.map(h => `<th>${h}</th>`).join("");
+  const rawRows  = data.map(r =>
+    `<tr>${headers.map((_, i) => `<td class="${/\d/.test(r[i] || "") ? "td-mono" : "td-name"}">${r[i] || "—"}</td>`).join("")}</tr>`
+  ).join("");
+
+  document.getElementById("staking-content").innerHTML = `
+
+    <!-- Summary -->
+    <div class="staking-summary">
+      <div class="staking-card">
+        <div class="staking-card-label">💰 Total Invested</div>
+        <div class="staking-card-value">${fmtUSD(totalInvested)}</div>
+        <div class="staking-card-sub">Capital deployed</div>
+      </div>
+      <div class="staking-card">
+        <div class="staking-card-label">${profitPos ? "📈" : "📉"} Total Profit</div>
+        <div class="staking-card-value ${profitPos ? "pos" : "neg"}">${pnlSign(totalProfit)}${fmtUSD(totalProfit)}</div>
+        <div class="staking-card-sub">${pnlSign(roi)}${fmt(roi)}% ROI</div>
+      </div>
+      <div class="staking-card">
+        <div class="staking-card-label">✅ Active Positions</div>
+        <div class="staking-card-value">${activeCount}</div>
+        <div class="staking-card-sub">of ${data.length} total</div>
+      </div>
+      ${iApy >= 0 ? `` : ""}
+    </div>
+
+    <!-- Position cards -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">💎 Investment Positions <span class="section-count">${data.length}</span></div>
+      </div>
+      <div class="staking-positions">${posCards || '<p style="color:var(--text-muted)">No positions found</p>'}</div>
+    </div>
+
+    <!-- Full log table -->
+    <div class="section staking-log">
+      <div class="section-header">
+        <div class="section-title">📋 Full Investment Log</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${thCells}</tr></thead>
+          <tbody>${rawRows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────

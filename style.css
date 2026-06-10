@@ -214,6 +214,35 @@ header {
 .btn-logout:hover      { border-color: var(--red);   color: var(--red);   background: var(--red-dim);  }
 
 /* ═══════════════════════════════════════
+   TAB BAR
+═══════════════════════════════════════ */
+.tab-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 0;
+  padding: 0 1.75rem;
+}
+
+.tab-btn {
+  padding: .85rem 1.1rem;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  font-family: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover  { color: var(--text); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--green); }
+
+/* ═══════════════════════════════════════
    MAIN / LAYOUT
 ═══════════════════════════════════════ */
 main {
@@ -661,11 +690,153 @@ tbody td {
 .pnl-badge.pnl-neg { background: var(--red-dim);   color: var(--red); }
 
 /* ═══════════════════════════════════════
+   STAKING DASHBOARD
+═══════════════════════════════════════ */
+
+/* Summary row */
+.staking-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.staking-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem 1.4rem;
+}
+
+.staking-card-label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--text-muted);
+  margin-bottom: .35rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.staking-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  color: var(--text);
+}
+
+.staking-card-value.pos { color: var(--green); }
+.staking-card-value.neg { color: var(--red);   }
+
+.staking-card-sub {
+  font-size: .75rem;
+  color: var(--text-muted);
+  margin-top: .2rem;
+}
+
+/* Active positions */
+.staking-positions {
+  display: flex;
+  flex-direction: column;
+  gap: .875rem;
+  margin-bottom: 1.25rem;
+}
+
+.staking-pos-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem 1.5rem;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr;
+  align-items: center;
+  gap: 1rem;
+}
+
+.staking-pos-name {
+  font-weight: 700;
+  font-size: .9rem;
+  color: var(--text);
+}
+
+.staking-pos-platform {
+  font-size: .75rem;
+  color: var(--text-muted);
+  margin-top: .15rem;
+}
+
+.staking-pos-col-label {
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+  margin-bottom: .2rem;
+}
+
+.staking-pos-col-value {
+  font-family: var(--font-mono);
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.staking-pos-col-value.pos { color: var(--green); }
+.staking-pos-col-value.neg { color: var(--red);   }
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .25rem .7rem;
+  border-radius: 20px;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.status-active   { background: var(--green-dim); color: var(--green); }
+.status-pending  { background: #FFF8E6;          color: var(--orange);}
+.status-closed   { background: var(--border-light); color: var(--text-muted); }
+
+/* Exit timing bar */
+.timing-wrap { margin-top: .35rem; }
+.timing-track {
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: .3rem;
+}
+.timing-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--green);
+  transition: width .4s ease;
+}
+.timing-label {
+  font-size: .7rem;
+  color: var(--text-muted);
+}
+
+/* Full log table (raw view) */
+.staking-log { margin-bottom: 1.25rem; }
+
+/* ═══════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════ */
 @media (max-width: 768px) {
   main { padding: 1rem 1rem 3rem; }
   header { padding: 0 1rem; }
+  .tab-bar { padding: 0 1rem; }
+  .staking-pos-card { grid-template-columns: 1fr 1fr; row-gap: .75rem; }
 
   .hero-value { font-size: 2.25rem; }
   .hero-mini-cards { grid-template-columns: 1fr; max-width: 100%; gap: .6rem; }

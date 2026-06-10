@@ -38,22 +38,25 @@
   <div id="app">
     <header>
       <div class="header-brand">
-        <div class="dot"></div>
+        <div class="brand-dot"></div>
         Portfolio
       </div>
       <div class="header-actions">
         <span class="last-updated" id="last-updated"></span>
-        <button class="btn-icon" id="btn-refresh">
-          ↻ Refresh
-        </button>
-        <button class="btn-icon btn-logout" id="btn-logout">
-          Sign out
-        </button>
+        <button class="btn-icon btn-refresh" id="btn-refresh">↻ Refresh</button>
+        <button class="btn-icon btn-logout" id="btn-logout">Sign out</button>
       </div>
     </header>
 
+    <!-- Tab navigation -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab-btn" data-tab="staking">💎 Staking Investment</button>
+    </div>
+
     <main>
       <div id="dashboard-content"></div>
+      <div id="staking-content" style="display:none"></div>
     </main>
   </div>
 
