@@ -525,8 +525,28 @@ async function loadStaking() {
 // ─── Staking: Render ──────────────────────────────────────────────────────────
 
 function renderStaking(rows) {
-  const headers = rows[0].map(h => (h || "").trim());
-  const data    = rows.slice(1).filter(r => r.some(c => (c || "").trim()));
+  // ── Find the real header row ──
+  // Look for a row that contains at least 2 known investment column keywords
+  const COL_KEYWORDS = ["account","instrument","amount","apy","apr","date","status","income","profit","earn","entry","exit","platform","name","asset","rate","currency"];
+  const SKIP_ROW_MARKERS = ["total monthly","status legend","log every","►","•"];
+
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const row = rows[i];
+    const cellText = row.map(c => (c || "").toLowerCase());
+    const matches = cellText.filter(c => COL_KEYWORDS.some(k => c.includes(k))).length;
+    if (matches >= 2) { headerIdx = i; break; }
+  }
+
+  const headers = rows[headerIdx].map(h => (h || "").trim());
+
+  // ── Filter data rows ──
+  // Skip: empty rows, instruction rows, total rows, legend rows
+  const data = rows.slice(headerIdx + 1).filter(r => {
+    if (!r.some(c => (c || "").trim())) return false; // all empty
+    const first = (r[0] || r[1] || r[2] || "").toString().toLowerCase();
+    return !SKIP_ROW_MARKERS.some(m => first.includes(m));
+  });
 
   // ── Column index helpers ──
   const ci = (keywords) => {
