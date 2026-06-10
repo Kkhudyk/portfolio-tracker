@@ -459,6 +459,21 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 1) + "…" : str;
 }
 
+// Parse dates in DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, or MM/DD/YYYY
+function parseDate(str) {
+  if (!str) return null;
+  str = str.trim();
+  // DD.MM.YYYY or DD/MM/YYYY
+  let m = str.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  // YYYY-MM-DD
+  m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  // fallback
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -609,8 +624,8 @@ function renderStaking(rows) {
     // Timing progress (days elapsed / total duration)
     let timingHTML = "";
     if (startRaw && endRaw) {
-      const start   = new Date(startRaw);
-      const end     = new Date(endRaw);
+      const start   = parseDate(startRaw);
+      const end     = parseDate(endRaw);
       const now     = new Date();
       const total   = end - start;
       const elapsed = now - start;
