@@ -322,18 +322,7 @@ function renderDashboard(summary, assets, cash) {
       </div>
     </div>
 
-    <!-- ── ASSETS TABLE ── -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-title">📊 All Assets <span class="section-count">${assets.length}</span></div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>P&amp;L ($)</th><th>P&amp;L (%)</th></tr></thead>
-          <tbody>${assetRows || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem">No assets found</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+`;
 
   // Draw charts after DOM update
   requestAnimationFrame(() => {
