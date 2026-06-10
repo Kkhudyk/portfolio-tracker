@@ -112,6 +112,7 @@ const CAT_CFG = {
   debt:       { emoji: "🔴", label: "Debt",       color: "#FF3B30", bg: "#FFE5E3" },
   locked:     { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
   investment: { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
+  staking:    { emoji: "💎", label: "Staking",    color: "#7C3AED", bg: "#F0EBFF" },
 };
 
 function getCatCfg(cat) {
@@ -804,10 +805,14 @@ async function loadDashboard() {
       }));
 
     // ── Compute summary from raw data ──
-    let freeCashTotal = 0;
+    // Entries with category "Staking" are counted separately, not in Free Cash
+    let freeCashTotal = 0, stakingCashTotal = 0;
     cash.forEach((c) => {
-      const v = parseNum(c.value);
-      if (!isNaN(v)) freeCashTotal += v;
+      const v   = parseNum(c.value);
+      if (isNaN(v)) return;
+      const cat = (c.category || "").toLowerCase();
+      if (cat.includes("staking")) stakingCashTotal += v;
+      else freeCashTotal += v;
     });
 
     let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
@@ -820,7 +825,8 @@ async function loadDashboard() {
       if (type === "Crypto"   && !isNaN(pnl)) pnlTotal     += pnl;
     });
 
-    const netWorth = freeCashTotal + assetsTotal + investedTotal;
+    // Net Worth = all buckets (staking cash was already in freeCash before, still counted)
+    const netWorth = freeCashTotal + stakingCashTotal + assetsTotal + investedTotal;
 
     const summary = {
       netWorth: netWorth,
@@ -828,7 +834,7 @@ async function loadDashboard() {
       assets:   assetsTotal,
       invested: investedTotal,
       pnl:      pnlTotal,
-      staking:  stakingTotal,
+      staking:  stakingCashTotal + stakingTotal,  // cash staking + investment log
     };
 
     renderDashboard(summary, assets, cash);
