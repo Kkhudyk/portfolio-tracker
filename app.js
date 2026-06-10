@@ -155,26 +155,54 @@ function renderDashboard(summary, assets, cash) {
   const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   document.getElementById("last-updated").textContent = `Updated ${now}`;
 
-  // ── P&L breakdown cards (Crypto only) ──
+  // ── P&L breakdown cards (Crypto only, grouped by coin) ──
   const cryptoAssets = assets.filter(a => (a.type || "").trim() === "Crypto");
-  const pnlCards = cryptoAssets.map(a => {
-    const val      = parseNum(a.value);
-    const pnl      = parseNum(a.pnl);
-    const pnlP     = parseNum(a.pnlPct);
-    const cls      = pnlClass(pnl);
-    const costB    = isNaN(val) || isNaN(pnl) ? 0 : val - pnl;
-    const progress = costB > 0 ? Math.min(100, Math.max(2, (val / costB) * 100)) : 50;
-    const barColor = pnl >= 0 ? "#00C805" : "#FF3B30";
+
+  // Group by base coin name: "ETH (Binance)" → "ETH"
+  const coinName = n => n.replace(/\s*\(.*?\)\s*/g, "").trim() || n;
+  const coinGroups = {};
+  cryptoAssets.forEach(a => {
+    const coin = coinName(a.name);
+    if (!coinGroups[coin]) coinGroups[coin] = { coin, accounts: [] };
+    coinGroups[coin].accounts.push(a);
+  });
+
+  const pnlCards = Object.values(coinGroups).map(g => {
+    // Sum across accounts
+    let totalVal = 0, totalPnl = 0, validVal = false, validPnl = false;
+    g.accounts.forEach(a => {
+      const v = parseNum(a.value); const p = parseNum(a.pnl);
+      if (!isNaN(v)) { totalVal += v; validVal = true; }
+      if (!isNaN(p)) { totalPnl += p; validPnl = true; }
+    });
+    const costB    = totalVal - totalPnl;
+    const pnlPct   = costB !== 0 ? (totalPnl / costB) * 100 : 0;
+    const cls      = pnlClass(totalPnl);
+    const barColor = totalPnl >= 0 ? "#00C805" : "#FF3B30";
+    const progress = costB > 0 ? Math.min(100, Math.max(2, (totalVal / costB) * 100)) : 50;
+
+    // Per-account tooltip rows
+    const tooltipRows = g.accounts.map(a => {
+      const v = parseNum(a.value); const p = parseNum(a.pnl);
+      const acct = a.name.match(/\((.+?)\)/)?.[1] || a.name;
+      return `<div class="pnl-tooltip-row">
+        <span class="pnl-tooltip-acct">${acct}</span>
+        <span class="pnl-tooltip-val">${isNaN(v) ? "—" : fmtUSD(v)}</span>
+        <span class="pnl-tooltip-pnl ${pnlClass(p)}">${isNaN(p) ? "—" : pnlSign(p)+fmtUSD(p)}</span>
+      </div>`;
+    }).join("");
+
     return `
-    <div class="pnl-card">
-      <div class="pnl-card-name">${a.name}</div>
+    <div class="pnl-card pnl-card-grouped">
+      <div class="pnl-card-name">${g.coin}${g.accounts.length > 1 ? ` <span class="pnl-acct-count">${g.accounts.length} accts</span>` : ""}</div>
       <div class="pnl-card-type">Crypto</div>
-      <div class="pnl-card-value">${isNaN(val) ? "—" : fmtUSD(val)}</div>
-      <div class="pnl-card-pnl ${cls}">${isNaN(pnl) ? "—" : pnlSign(pnl) + fmtUSD(pnl)}</div>
+      <div class="pnl-card-value">${validVal ? fmtUSD(totalVal) : "—"}</div>
+      <div class="pnl-card-pnl ${cls}">${validPnl ? pnlSign(totalPnl)+fmtUSD(totalPnl) : "—"}</div>
       <div class="pnl-progress-track">
         <div class="pnl-progress-bar" style="width:${progress}%;background:${barColor}"></div>
       </div>
-      <div class="pnl-card-pct ${cls}">${isNaN(pnlP) ? "—" : pnlSign(pnlP) + fmt(pnlP) + "%"}</div>
+      <div class="pnl-card-pct ${cls}">${validPnl ? pnlSign(pnlPct)+fmt(pnlPct)+"%" : "—"}</div>
+      ${g.accounts.length > 1 ? `<div class="pnl-tooltip"><div class="pnl-tooltip-title">By account</div>${tooltipRows}</div>` : ""}
     </div>`;
   }).join("");
 

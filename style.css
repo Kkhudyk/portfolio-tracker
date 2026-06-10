@@ -543,6 +543,63 @@ main {
 .pnl-card-pct.pnl-pos { color: var(--green); }
 .pnl-card-pct.pnl-neg { color: var(--red); }
 
+/* Account count badge */
+.pnl-acct-count {
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--border-light);
+  padding: .1rem .45rem;
+  border-radius: 20px;
+  vertical-align: middle;
+}
+
+/* Grouped card — hover tooltip */
+.pnl-card-grouped { position: relative; cursor: default; }
+
+.pnl-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 240px;
+  background: var(--text);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.pnl-card-grouped:hover .pnl-tooltip { display: block; }
+
+.pnl-tooltip-title {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,.5);
+  margin-bottom: .5rem;
+}
+
+.pnl-tooltip-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: .5rem;
+  align-items: center;
+  padding: .25rem 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  font-size: .8rem;
+}
+.pnl-tooltip-row:last-child { border-bottom: none; }
+
+.pnl-tooltip-acct { color: rgba(255,255,255,.85); font-weight: 500; }
+.pnl-tooltip-val  { font-family: var(--font-mono); font-size: .78rem; color: rgba(255,255,255,.9); }
+.pnl-tooltip-pnl  { font-family: var(--font-mono); font-size: .78rem; font-weight: 700; }
+.pnl-tooltip-pnl.pnl-pos { color: #4ade80; }
+.pnl-tooltip-pnl.pnl-neg { color: #f87171; }
+
 /* ═══════════════════════════════════════
    LIQUIDITY
 ═══════════════════════════════════════ */
