@@ -613,18 +613,41 @@ main {
   cursor: default;
 }
 
-.liquidity-bars { margin-bottom: 0; }
+/* Each category row is a wrapper that reveals its accounts on hover */
+.liq-row-wrap {
+  margin-bottom: .5rem;
+}
+.liq-row-wrap:last-child { margin-bottom: 0; }
 
-/* Accounts table hidden by default, revealed on hover */
-.liq-accounts-tooltip {
+.liq-acct-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height .35s ease, opacity .25s ease;
+  transition: max-height .3s ease, opacity .2s ease;
   opacity: 0;
+  padding-left: 130px; /* indent to align under the bar */
 }
-.liquidity-card:hover .liq-accounts-tooltip {
-  max-height: 600px;
+.liq-row-wrap:hover .liq-acct-panel {
+  max-height: 400px;
   opacity: 1;
+}
+
+.liq-acct-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .3rem .5rem .3rem 0;
+  border-top: 1px solid var(--border-light);
+  font-size: .8rem;
+}
+.liq-acct-name {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.liq-acct-val {
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .liq-row {
@@ -669,7 +692,7 @@ main {
 .liq-divider {
   height: 1px;
   background: var(--border-light);
-  margin: 1.25rem 0;
+  margin: 1rem 0;
 }
 
 /* ═══════════════════════════════════════

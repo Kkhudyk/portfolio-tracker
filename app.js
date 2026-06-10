@@ -208,34 +208,40 @@ function renderDashboard(summary, assets, cash) {
 
   // ── Liquidity category totals ──
   const catTotals = {};
+  const catAccounts = {};
   cash.forEach(c => {
     const key = (c.category || "").toLowerCase().trim();
     if (!key) return;
     const v = parseNum(c.value);
-    if (!isNaN(v)) catTotals[c.category] = (catTotals[c.category] || 0) + v;
+    if (!isNaN(v)) {
+      catTotals[c.category]   = (catTotals[c.category]   || 0) + v;
+      catAccounts[c.category] = (catAccounts[c.category] || []);
+      catAccounts[c.category].push(c);
+    }
   });
   const liqTotal = Object.values(catTotals).reduce((s, v) => s + v, 0);
 
   const liqBars = Object.entries(catTotals).map(([cat, val]) => {
     const cfg = getCatCfg(cat);
     const pct = liqTotal > 0 ? Math.max(1, (val / liqTotal) * 100) : 0;
-    return `
-    <div class="liq-row">
-      <div class="liq-label">${cfg.emoji} ${cfg.label}</div>
-      <div class="liq-track"><div class="liq-bar" style="width:${pct}%;background:${cfg.color}"></div></div>
-      <div class="liq-amount">${fmtUSD(val)}</div>
-    </div>`;
-  }).join("");
+    const accounts = catAccounts[cat] || [];
+    const acctRows = accounts.map(c => {
+      const v = parseNum(c.value);
+      return `<div class="liq-acct-row">
+        <span class="liq-acct-name">${c.account}</span>
+        <span class="liq-acct-val">${isNaN(v) ? "—" : fmtUSD(v)}</span>
+      </div>`;
+    }).join("");
 
-  // ── Cash table ──
-  const cashRows = cash.map(c => {
-    const val = parseNum(c.value);
-    const cfg = getCatCfg(c.category);
-    return `<tr>
-      <td class="td-name">${c.account}</td>
-      <td><span class="badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.emoji} ${c.category}</span></td>
-      <td class="td-mono">${isNaN(val) ? "—" : fmtUSD(val)}</td>
-    </tr>`;
+    return `
+    <div class="liq-row-wrap">
+      <div class="liq-row">
+        <div class="liq-label">${cfg.emoji} ${cfg.label}</div>
+        <div class="liq-track"><div class="liq-bar" style="width:${pct}%;background:${cfg.color}"></div></div>
+        <div class="liq-amount">${fmtUSD(val)}</div>
+      </div>
+      ${accounts.length ? `<div class="liq-acct-panel">${acctRows}</div>` : ""}
+    </div>`;
   }).join("");
 
   // ── Assets table ──
@@ -312,14 +318,7 @@ function renderDashboard(summary, assets, cash) {
         <div class="section-title">💧 Liquidity</div>
       </div>
       <div class="liquidity-card">
-        <div class="liquidity-bars">${liqBars || '<p style="color:var(--text-muted);font-size:.875rem">No categories found</p>'}</div>
-        <div class="liq-accounts-tooltip">
-          <div class="liq-divider"></div>
-          <table>
-            <thead><tr><th>Account</th><th>Category</th><th>Value (USD)</th></tr></thead>
-            <tbody>${cashRows || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:1.5rem">No entries</td></tr>'}</tbody>
-          </table>
-        </div>
+        ${liqBars || '<p style="color:var(--text-muted);font-size:.875rem">No categories found</p>'}
       </div>
     </div>
 
