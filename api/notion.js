@@ -2,9 +2,10 @@ const NOTION_VERSION = "2022-06-28";
 const NOTION_API = "https://api.notion.com/v1";
 
 const DB_IDS = {
-  assets:  "3aaf88e694ca4d1e88072f1823616a16",
-  cash:    "27bf5a57c00a4aeabad9c979c74dad87",
-  staking: "03ce408d1f2141cba92cba17da81513e",
+  assets:     "3aaf88e694ca4d1e88072f1823616a16",
+  cash:       "27bf5a57c00a4aeabad9c979c74dad87",
+  staking:    "03ce408d1f2141cba92cba17da81513e",
+  properties: "4fcbe88a82824442937a58bf9ea2722d",
 };
 
 function getProp(props, name) {
@@ -79,6 +80,11 @@ export default async function handler(req, res) {
         amount:   getProp(props, "Amount"),
         rate:     getProp(props, "Rate USD"),
         value:    getProp(props, "Value USD"),
+      };
+      if (db === "properties") return {
+        name:  getProp(props, "Name"),
+        value: getProp(props, "Value USD"),
+        description: getProp(props, "Description"),
       };
       if (db === "staking") return {
         name:      getProp(props, "Name"),

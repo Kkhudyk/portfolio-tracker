@@ -159,7 +159,7 @@ function renderError(msg) {
     </div>`;
 }
 
-function renderDashboard(summary, assets, cash) {
+function renderDashboard(summary, assets, cash, properties = []) {
   const netWorth  = summary.netWorth;
   const freeCash  = summary.freeCash;
   const assetsVal = summary.assets;
@@ -344,7 +344,12 @@ function renderDashboard(summary, assets, cash) {
   // Draw charts after DOM update
   requestAnimationFrame(() => {
     drawDonut(netWorth, freeCash, assetsVal, invested, staking);
-    drawBarChart(assets);
+    // Combine crypto + properties for bar chart
+    const barItems = [
+      ...assets.map(a => ({ name: a.name + (a.account ? ` (${a.account})` : ""), value: a.value, type: "Crypto" })),
+      ...properties.map(p => ({ name: p.name, value: p.value, type: "Property" })),
+    ];
+    drawBarChart(barItems);
   });
 }
 
@@ -424,8 +429,7 @@ function drawBarChart(assets) {
   if (!canvas) return;
 
   const items = assets
-    .map(a => ({ name: a.name, value: parseNum(a.value), type: a.type }))
-    .filter(a => !isNaN(a.value) && a.value > 0)
+    .filter(a => a.value != null && a.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
@@ -453,7 +457,7 @@ function drawBarChart(assets) {
   items.forEach((item, i) => {
     const y    = padTop + i * rowH;
     const barW = Math.max(4, (item.value / maxVal) * barMaxW);
-    const color = item.type === "Crypto" ? "#818CF8" : "#71717A";
+    const color = item.type === "Property" ? "#71717A" : "#818CF8";
     const barY  = y + (rowH - barH) / 2;
 
     // Bar background
@@ -683,10 +687,11 @@ function renderStaking(rows) {
 async function loadDashboard() {
   renderSkeleton();
   try {
-    const [assets, cash, stakingRows] = await Promise.all([
+    const [assets, cash, stakingRows, properties] = await Promise.all([
       fetchDB("assets"),
       fetchDB("cash"),
       fetchDB("staking"),
+      fetchDB("properties"),
     ]);
 
     // ── Compute summary ──
@@ -708,12 +713,14 @@ async function loadDashboard() {
       .filter(r => (r.status || "Active").toLowerCase() === "active")
       .reduce((sum, r) => sum + (r.amount || 0), 0);
 
-    let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
+    // Properties from dedicated DB
+    const assetsTotal = properties.reduce((s, p) => s + (p.value || 0), 0);
+
+    let investedTotal = 0, pnlTotal = 0;
     assets.forEach((a) => {
-      const val = a.value, pnl = a.pnl, type = (a.type || "").trim();
-      if (type === "Property" && val != null) assetsTotal   += val;
-      if (type === "Crypto"   && val != null) investedTotal += val;
-      if (type === "Crypto"   && pnl != null) pnlTotal      += pnl;
+      const val = a.value, pnl = a.pnl;
+      if (val != null) investedTotal += val;
+      if (pnl != null) pnlTotal      += pnl;
     });
 
     const netWorth = freeCashTotal + stakingCashTotal + assetsTotal + investedTotal;
@@ -722,7 +729,7 @@ async function loadDashboard() {
       invested: investedTotal, pnl: pnlTotal, staking: stakingCashTotal,
     };
 
-    renderDashboard(summary, assets, cash);
+    renderDashboard(summary, assets, cash, properties);
   } catch (err) {
     renderError(err.message);
   }
