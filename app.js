@@ -551,19 +551,23 @@ async function loadStaking() {
 // ─── Staking: Render ──────────────────────────────────────────────────────────
 
 function renderStaking(rows) {
-  // ── Compute summary ──
-  let totalInvested = 0, totalProfit = 0, activeCount = 0;
-  rows.forEach(r => {
-    if (r.amount != null)  totalInvested += r.amount;
-    if (r.profit != null)  totalProfit   += r.profit;
-    if ((r.status || "Active").toLowerCase().includes("active")) activeCount++;
+  const active  = rows.filter(r => (r.status || "Active").toLowerCase() === "active");
+  const history = rows.filter(r => (r.status || "Active").toLowerCase() !== "active");
+
+  // ── Summary from active only ──
+  let totalInvested = 0, totalProfit = 0;
+  active.forEach(r => {
+    if (r.amount != null) totalInvested += r.amount;
+    if (r.profit != null) totalProfit   += r.profit;
   });
+  const historyProfit = history.reduce((s, r) => s + (r.profit || 0), 0);
+  const allTimeProfit = totalProfit + historyProfit;
 
   const roi = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
   const profitPos = totalProfit >= 0;
 
   // ── Build position cards ──
-  const posCards = rows.map(r => {
+  const posCards = active.map(r => {
     const { name, platform, amount, profit, apy, startDate, endDate, status } = r;
     const pPos = profit == null || profit >= 0;
     const statusLo = (status || "Active").toLowerCase();
@@ -616,34 +620,62 @@ function renderStaking(rows) {
     </div>`;
   }).join("");
 
+  // ── History rows ──
+  const historyRows = history.map(r => {
+    const pPos = r.profit == null || r.profit >= 0;
+    return `<tr>
+      <td class="td-name">${r.name || "—"}</td>
+      <td class="td-name" style="color:var(--text-muted)">${r.platform || "—"}</td>
+      <td class="td-mono">${r.startDate || "—"}</td>
+      <td class="td-mono">${r.endDate || "—"}</td>
+      <td class="td-mono">${r.amount != null ? fmtUSD(r.amount) : "—"}</td>
+      <td class="td-mono">${r.apy || "—"}</td>
+      <td class="td-mono ${pPos ? "pnl-pos" : "pnl-neg"}">${r.profit != null ? pnlSign(r.profit) + fmtUSD(r.profit) : "—"}</td>
+    </tr>`;
+  }).join("");
+
   document.getElementById("staking-content").innerHTML = `
 
     <!-- Summary -->
     <div class="staking-summary">
       <div class="staking-card">
-        <div class="staking-card-label">💰 Total Invested</div>
+        <div class="staking-card-label">💰 In Staking Now</div>
         <div class="staking-card-value">${fmtUSD(totalInvested)}</div>
-        <div class="staking-card-sub">Capital deployed</div>
+        <div class="staking-card-sub">${active.length} active position${active.length !== 1 ? "s" : ""}</div>
       </div>
       <div class="staking-card">
-        <div class="staking-card-label">${profitPos ? "📈" : "📉"} Total Profit</div>
+        <div class="staking-card-label">${profitPos ? "📈" : "📉"} Current Profit</div>
         <div class="staking-card-value ${profitPos ? "pos" : "neg"}">${pnlSign(totalProfit)}${fmtUSD(totalProfit)}</div>
         <div class="staking-card-sub">${pnlSign(roi)}${fmt(roi)}% ROI</div>
       </div>
       <div class="staking-card">
-        <div class="staking-card-label">✅ Active Positions</div>
-        <div class="staking-card-value">${activeCount}</div>
-        <div class="staking-card-sub">of ${rows.length} total</div>
+        <div class="staking-card-label">📊 All-time Earned</div>
+        <div class="staking-card-value pos">${pnlSign(allTimeProfit)}${fmtUSD(allTimeProfit)}</div>
+        <div class="staking-card-sub">${rows.length} total deals</div>
       </div>
     </div>
 
-    <!-- Position cards -->
+    <!-- Active positions -->
     <div class="section">
       <div class="section-header">
-        <div class="section-title">💎 Investment Positions <span class="section-count">${rows.length}</span></div>
+        <div class="section-title">✅ Active <span class="section-count">${active.length}</span></div>
       </div>
-      <div class="staking-positions">${posCards || '<p style="color:var(--text-muted)">No positions found</p>'}</div>
-    </div>`;
+      <div class="staking-positions">${posCards || '<p style="color:var(--text-muted);font-size:.85rem">No active positions</p>'}</div>
+    </div>
+
+    <!-- History -->
+    ${history.length ? `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📋 History <span class="section-count">${history.length}</span></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Instrument</th><th>Account</th><th>Start</th><th>End</th><th>Amount</th><th>APY</th><th>Profit</th></tr></thead>
+          <tbody>${historyRows}</tbody>
+        </table>
+      </div>
+    </div>` : ""}`;
 }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -651,9 +683,10 @@ function renderStaking(rows) {
 async function loadDashboard() {
   renderSkeleton();
   try {
-    const [assets, cash] = await Promise.all([
+    const [assets, cash, stakingRows] = await Promise.all([
       fetchDB("assets"),
       fetchDB("cash"),
+      fetchDB("staking"),
     ]);
 
     // ── Compute summary ──
@@ -662,15 +695,18 @@ async function loadDashboard() {
       return lo.includes("liquid") || lo.includes("incoming") ||
              lo.includes("debt")   || lo.includes("locked");
     };
-    const isStakingCat = (cat) => (cat || "").toLowerCase().includes("stak");
 
-    let freeCashTotal = 0, stakingCashTotal = 0;
+    let freeCashTotal = 0;
     cash.forEach((c) => {
       const v = c.value;
-      if (v == null || isNaN(v)) return;
-      if (isStakingCat(c.category))       stakingCashTotal += v;
-      else if (isFreeCashCat(c.category)) freeCashTotal    += v;
+      if (v == null || isNaN(v) || v === 0) return;
+      if (isFreeCashCat(c.category)) freeCashTotal += v;
     });
+
+    // Staking total = only Active rows from Investment Log
+    const stakingCashTotal = stakingRows
+      .filter(r => (r.status || "Active").toLowerCase() === "active")
+      .reduce((sum, r) => sum + (r.amount || 0), 0);
 
     let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
     assets.forEach((a) => {
