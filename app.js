@@ -50,14 +50,14 @@ document.getElementById("btn-refresh").addEventListener("click", () => {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-async function fetchRange(range) {
-  const res = await fetch(`/api/sheets?range=${encodeURIComponent(range)}`);
+async function fetchDB(db) {
+  const res = await fetch(`/api/notion?db=${db}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    const detail = err.detail ? ` — ${err.detail}` : "";
-    throw new Error((err.error || `HTTP ${res.status}`) + detail);
+    throw new Error(err.error || `HTTP ${res.status}`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.rows || [];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -168,12 +168,11 @@ function renderDashboard(summary, assets, cash) {
   });
 
   const pnlCards = Object.values(coinGroups).map(g => {
-    // Sum across accounts
     let totalVal = 0, totalPnl = 0, validVal = false, validPnl = false;
     g.accounts.forEach(a => {
-      const v = parseNum(a.value); const p = parseNum(a.pnl);
-      if (!isNaN(v)) { totalVal += v; validVal = true; }
-      if (!isNaN(p)) { totalPnl += p; validPnl = true; }
+      const v = a.value, p = a.pnl;
+      if (v != null) { totalVal += v; validVal = true; }
+      if (p != null) { totalPnl += p; validPnl = true; }
     });
     const costB    = totalVal - totalPnl;
     const pnlPct   = costB !== 0 ? (totalPnl / costB) * 100 : 0;
@@ -183,12 +182,12 @@ function renderDashboard(summary, assets, cash) {
 
     // Per-account tooltip rows
     const tooltipRows = g.accounts.map(a => {
-      const v = parseNum(a.value); const p = parseNum(a.pnl);
-      const acct = a.name.match(/\((.+?)\)/)?.[1] || a.name;
+      const v = a.value, p = a.pnl;
+      const acct = a.account || a.name.match(/\((.+?)\)/)?.[1] || a.name;
       return `<div class="pnl-tooltip-row">
         <span class="pnl-tooltip-acct">${acct}</span>
-        <span class="pnl-tooltip-val">${isNaN(v) ? "—" : fmtUSD(v)}</span>
-        <span class="pnl-tooltip-pnl ${pnlClass(p)}">${isNaN(p) ? "—" : pnlSign(p)+fmtUSD(p)}</span>
+        <span class="pnl-tooltip-val">${v == null ? "—" : fmtUSD(v)}</span>
+        <span class="pnl-tooltip-pnl ${pnlClass(p)}">${p == null ? "—" : pnlSign(p)+fmtUSD(p)}</span>
       </div>`;
     }).join("");
 
@@ -197,7 +196,7 @@ function renderDashboard(summary, assets, cash) {
       <div class="pnl-card-name">${g.coin}${g.accounts.length > 1 ? ` <span class="pnl-acct-count">${g.accounts.length} accts</span>` : ""}</div>
       <div class="pnl-card-type">Crypto</div>
       <div class="pnl-card-value">${validVal ? fmtUSD(totalVal) : "—"}</div>
-      <div class="pnl-card-pnl ${cls}">${validPnl ? pnlSign(totalPnl)+fmtUSD(totalPnl) : "—"}</div>
+      <div class="pnl-card-pnl ${cls}">${validPnl ? pnlSign(totalPnl) + fmtUSD(totalPnl) : "—"}</div>
       <div class="pnl-progress-track">
         <div class="pnl-progress-bar" style="width:${progress}%;background:${barColor}"></div>
       </div>
@@ -212,8 +211,8 @@ function renderDashboard(summary, assets, cash) {
   cash.forEach(c => {
     const key = (c.category || "").toLowerCase().trim();
     if (!key) return;
-    const v = parseNum(c.value);
-    if (!isNaN(v)) {
+    const v = c.value;
+    if (v != null && !isNaN(v)) {
       catTotals[c.category]   = (catTotals[c.category]   || 0) + v;
       catAccounts[c.category] = (catAccounts[c.category] || []);
       catAccounts[c.category].push(c);
@@ -226,10 +225,10 @@ function renderDashboard(summary, assets, cash) {
     const pct = liqTotal > 0 ? Math.max(1, (val / liqTotal) * 100) : 0;
     const accounts = catAccounts[cat] || [];
     const acctRows = accounts.map(c => {
-      const v = parseNum(c.value);
+      const v = c.value;
       return `<div class="liq-acct-row">
         <span class="liq-acct-name">${c.account}</span>
-        <span class="liq-acct-val">${isNaN(v) ? "—" : fmtUSD(v)}</span>
+        <span class="liq-acct-val">${v == null || isNaN(v) ? "—" : fmtUSD(v)}</span>
       </div>`;
     }).join("");
 
@@ -515,41 +514,12 @@ async function loadStaking() {
   if (stakingLoaded) return;
   const el = document.getElementById("staking-content");
   el.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Loading investment log…</p></div>`;
-
   try {
-    // Step 1: get all sheet titles from spreadsheet metadata
-    const meta = await fetchRange("__sheets__");
-    const sheets = meta.sheets || [];
-
-    // Step 2: find the investment/staking sheet by gid=1013154586 first,
-    // then fall back to title keyword match
-    const TARGET_GID = 1013154586;
-    const KEYWORDS   = ["invest", "staking", "log"];
-
-    let sheetName =
-      (sheets.find(s => s.sheetId === TARGET_GID) ||
-       sheets.find(s => KEYWORDS.some(k => s.title.toLowerCase().includes(k))) ||
-       null)?.title;
-
-    if (!sheetName) {
-      const allNames = sheets.map(s => `"${s.title}" (gid:${s.sheetId})`).join(", ");
-      el.innerHTML = `<div class="error-state">
-        <div class="err-icon">📭</div>
-        <p><strong>Investment sheet not found</strong><br>
-        Available sheets: ${allNames}</p>
-      </div>`;
+    const rows = await fetchDB("staking");
+    if (!rows.length) {
+      el.innerHTML = `<div class="error-state"><div class="err-icon">📭</div><p>No staking positions found.</p></div>`;
       return;
     }
-
-    // Step 3: fetch the data
-    const data = await fetchRange(`${sheetName}!A1:Z300`);
-    const rows = data.values || [];
-
-    if (rows.length < 2) {
-      el.innerHTML = `<div class="error-state"><div class="err-icon">📭</div><p>Sheet "${sheetName}" is empty.</p></div>`;
-      return;
-    }
-
     renderStaking(rows);
     stakingLoaded = true;
   } catch (err) {
@@ -560,138 +530,70 @@ async function loadStaking() {
 // ─── Staking: Render ──────────────────────────────────────────────────────────
 
 function renderStaking(rows) {
-  // ── Find the real header row ──
-  // Look for a row that contains at least 2 known investment column keywords
-  const COL_KEYWORDS = ["account","instrument","amount","apy","apr","date","status","income","profit","earn","entry","exit","platform","name","asset","rate","currency"];
-  const SKIP_ROW_MARKERS = ["total monthly","status legend","log every","►","•"];
-
-  let headerIdx = 0;
-  for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const row = rows[i];
-    const cellText = row.map(c => (c || "").toLowerCase());
-    const matches = cellText.filter(c => COL_KEYWORDS.some(k => c.includes(k))).length;
-    if (matches >= 2) { headerIdx = i; break; }
-  }
-
-  const headers = rows[headerIdx].map(h => (h || "").trim());
-
-  // ── Filter data rows ──
-  // Skip: empty rows, instruction rows, total rows, legend rows
-  const data = rows.slice(headerIdx + 1).filter(r => {
-    if (!r.some(c => (c || "").trim())) return false; // all empty
-    const first = (r[0] || r[1] || r[2] || "").toString().toLowerCase();
-    return !SKIP_ROW_MARKERS.some(m => first.includes(m));
-  });
-
-  // ── Column index helpers ──
-  const ci = (keywords) => {
-    const kw = keywords.map(k => k.toLowerCase());
-    return headers.findIndex(h => kw.some(k => h.toLowerCase().includes(k)));
-  };
-
-  const iName     = ci(["name", "asset", "token", "coin", "project"]);
-  const iPlatform = ci(["platform", "protocol", "exchange", "source", "where"]);
-  const iAmount   = ci(["amount", "principal", "invested", "capital", "deposit", "invested ($)", "amount ($)"]);
-  const iProfit   = ci(["profit", "earn", "return", "income", "reward", "yield", "gain"]);
-  const iApy      = ci(["apy", "apr", "rate", "%", "interest"]);
-  const iStart    = ci(["start", "entry", "open", "date", "from"]);
-  const iEnd      = ci(["end", "exit", "close", "maturity", "until", "to"]);
-  const iStatus   = ci(["status", "state", "active", "open"]);
-  const iTotal    = ci(["total", "current value", "value", "balance"]);
-  const iDuration = ci(["duration", "days", "period", "term"]);
-
   // ── Compute summary ──
   let totalInvested = 0, totalProfit = 0, activeCount = 0;
-
-  data.forEach(r => {
-    if (iAmount >= 0) {
-      const v = parseNum(r[iAmount]);
-      if (!isNaN(v)) totalInvested += v;
-    }
-    if (iProfit >= 0) {
-      const v = parseNum(r[iProfit]);
-      if (!isNaN(v)) totalProfit += v;
-    }
-    if (iStatus >= 0) {
-      const s = (r[iStatus] || "").toLowerCase();
-      if (s.includes("active") || s.includes("open") || s.includes("✅") || s.includes("running")) activeCount++;
-    } else {
-      activeCount = data.length; // assume all active if no status col
-    }
+  rows.forEach(r => {
+    if (r.amount != null)  totalInvested += r.amount;
+    if (r.profit != null)  totalProfit   += r.profit;
+    if ((r.status || "Active").toLowerCase().includes("active")) activeCount++;
   });
 
   const roi = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
   const profitPos = totalProfit >= 0;
 
   // ── Build position cards ──
-  const posCards = data.map(r => {
-    const name     = iName     >= 0 ? (r[iName]     || "—") : "—";
-    const platform = iPlatform >= 0 ? (r[iPlatform] || "")  : "";
-    const amount   = iAmount   >= 0 ? parseNum(r[iAmount])  : NaN;
-    const profit   = iProfit   >= 0 ? parseNum(r[iProfit])  : NaN;
-    const apy      = iApy      >= 0 ? (r[iApy]      || "")  : "";
-    const startRaw = iStart    >= 0 ? (r[iStart]    || "")  : "";
-    const endRaw   = iEnd      >= 0 ? (r[iEnd]      || "")  : "";
-    const statusRaw= iStatus   >= 0 ? (r[iStatus]   || "")  : "Active";
-
-    const pPos = isNaN(profit) || profit >= 0;
-    const statusLo = statusRaw.toLowerCase();
-    const statusClass = statusLo.includes("active") || statusLo.includes("open") || statusLo.includes("✅") || statusRaw === ""
-      ? "status-active"
+  const posCards = rows.map(r => {
+    const { name, platform, amount, profit, apy, startDate, endDate, status } = r;
+    const pPos = profit == null || profit >= 0;
+    const statusLo = (status || "Active").toLowerCase();
+    const statusClass = statusLo.includes("active") ? "status-active"
       : statusLo.includes("pend") ? "status-pending" : "status-closed";
-    const statusLabel = statusRaw || "Active";
+    const statusLabel = status || "Active";
 
-    // Timing progress (days elapsed / total duration)
     let timingHTML = "";
-    if (startRaw && endRaw) {
-      const start   = parseDate(startRaw);
-      const end     = parseDate(endRaw);
-      const now     = new Date();
-      const total   = end - start;
-      const elapsed = now - start;
-      const pct     = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
-      const daysLeft= Math.max(0, Math.ceil((end - now) / 86400000));
+    if (startDate && endDate) {
+      const start    = new Date(startDate);
+      const end      = new Date(endDate);
+      const now      = new Date();
+      const total    = end - start;
+      const elapsed  = now - start;
+      const pct      = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+      const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000));
       const barColor = pct >= 80 ? "#FF3B30" : pct >= 50 ? "#F59E0B" : "#00C805";
       timingHTML = `
         <div class="timing-wrap">
           <div class="timing-label">${daysLeft > 0 ? `${daysLeft}d left` : "Ended"} · ${pct.toFixed(0)}% elapsed</div>
           <div class="timing-track"><div class="timing-bar" style="width:${pct}%;background:${barColor}"></div></div>
         </div>`;
-    } else if (endRaw) {
-      timingHTML = `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">Exit: ${endRaw}</div>`;
+    } else if (endDate) {
+      timingHTML = `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">Exit: ${endDate}</div>`;
     }
 
     return `
     <div class="staking-pos-card">
       <div>
-        <div class="staking-pos-name">${name}</div>
+        <div class="staking-pos-name">${name || "—"}</div>
         ${platform ? `<div class="staking-pos-platform">${platform}</div>` : ""}
         <div style="margin-top:.5rem"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
       </div>
       <div>
         <div class="staking-pos-col-label">Invested</div>
-        <div class="staking-pos-col-value">${isNaN(amount) ? "—" : fmtUSD(amount)}</div>
+        <div class="staking-pos-col-value">${amount != null ? fmtUSD(amount) : "—"}</div>
       </div>
       <div>
         <div class="staking-pos-col-label">Profit</div>
-        <div class="staking-pos-col-value ${pPos ? "pos" : "neg"}">${isNaN(profit) ? "—" : pnlSign(profit) + fmtUSD(profit)}</div>
+        <div class="staking-pos-col-value ${pPos ? "pos" : "neg"}">${profit != null ? pnlSign(profit) + fmtUSD(profit) : "—"}</div>
       </div>
       <div>
-        <div class="staking-pos-col-label">${iApy >= 0 ? "APY / Rate" : "Exit date"}</div>
-        <div class="staking-pos-col-value">${iApy >= 0 ? (apy || "—") : (endRaw || "—")}</div>
+        <div class="staking-pos-col-label">APY / Rate</div>
+        <div class="staking-pos-col-value">${apy || "—"}</div>
       </div>
       <div>
         <div class="staking-pos-col-label">Timeline</div>
-        ${timingHTML || `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">${startRaw || "—"}${endRaw ? " → " + endRaw : ""}</div>`}
+        ${timingHTML || `<div class="timing-label" style="font-size:.75rem;color:var(--text-muted)">${startDate || "—"}${endDate ? " → " + endDate : ""}</div>`}
       </div>
     </div>`;
   }).join("");
-
-  // ── Full raw table (all columns) ──
-  const thCells  = headers.map(h => `<th>${h}</th>`).join("");
-  const rawRows  = data.map(r =>
-    `<tr>${headers.map((_, i) => `<td class="${/\d/.test(r[i] || "") ? "td-mono" : "td-name"}">${r[i] || "—"}</td>`).join("")}</tr>`
-  ).join("");
 
   document.getElementById("staking-content").innerHTML = `
 
@@ -710,162 +612,57 @@ function renderStaking(rows) {
       <div class="staking-card">
         <div class="staking-card-label">✅ Active Positions</div>
         <div class="staking-card-value">${activeCount}</div>
-        <div class="staking-card-sub">of ${data.length} total</div>
+        <div class="staking-card-sub">of ${rows.length} total</div>
       </div>
-      ${iApy >= 0 ? `` : ""}
     </div>
 
     <!-- Position cards -->
     <div class="section">
       <div class="section-header">
-        <div class="section-title">💎 Investment Positions <span class="section-count">${data.length}</span></div>
+        <div class="section-title">💎 Investment Positions <span class="section-count">${rows.length}</span></div>
       </div>
       <div class="staking-positions">${posCards || '<p style="color:var(--text-muted)">No positions found</p>'}</div>
-    </div>
-
-    <!-- Full log table -->
-    <div class="section staking-log">
-      <div class="section-header">
-        <div class="section-title">📋 Full Investment Log</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>${thCells}</tr></thead>
-          <tbody>${rawRows}</tbody>
-        </table>
-      </div>
     </div>`;
 }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
-// Fetch staking total from Investment log (silent fail)
-async function fetchStakingTotal() {
-  try {
-    const meta   = await fetchRange("__sheets__");
-    const sheets = meta.sheets || [];
-    const TARGET_GID = 1013154586;
-    const KEYWORDS   = ["invest", "staking", "log"];
-    const sheetName  = (
-      sheets.find(s => s.sheetId === TARGET_GID) ||
-      sheets.find(s => KEYWORDS.some(k => s.title.toLowerCase().includes(k)))
-    )?.title;
-    if (!sheetName) return 0;
-
-    const data = await fetchRange(`${sheetName}!A1:Z300`);
-    const rows  = data.values || [];
-    if (rows.length < 2) return 0;
-
-    // Find header row + amount column (same logic as renderStaking)
-    const COL_KW = ["account","instrument","amount","apy","apr","date","status","income","profit","earn","entry","exit","platform","name","asset","rate","currency"];
-    let headerIdx = 0;
-    for (let i = 0; i < Math.min(rows.length, 15); i++) {
-      const matches = rows[i].filter(c => COL_KW.some(k => (c||"").toLowerCase().includes(k))).length;
-      if (matches >= 2) { headerIdx = i; break; }
-    }
-    const headers = rows[headerIdx].map(h => (h||"").trim().toLowerCase());
-    const iAmount = headers.findIndex(h => ["amount","principal","invested","capital","deposit"].some(k => h.includes(k)));
-    if (iAmount < 0) return 0;
-
-    const SKIP = ["total monthly","status legend","log every","►","•"];
-    let total = 0;
-    rows.slice(headerIdx + 1).forEach(r => {
-      const first = (r[0]||r[1]||r[2]||"").toLowerCase();
-      if (SKIP.some(m => first.includes(m))) return;
-      if (!r.some(c => (c||"").trim())) return;
-      const v = parseNum(r[iAmount]);
-      if (!isNaN(v)) total += v;
-    });
-    return total;
-  } catch { return 0; }
-}
-
 async function loadDashboard() {
   renderSkeleton();
   try {
-    const [assetsData, cashData, stakingTotal] = await Promise.all([
-      // A–K: rows 4+ (rows 1-3 are headers)
-      fetchRange("📊 Assets!A4:K200"),
-      // B–G: rows 7+ (rows 1-6 are headers/labels)
-      fetchRange("💵 Free Cash!B7:G200"),
-      fetchStakingTotal(),
+    const [assets, cash] = await Promise.all([
+      fetchDB("assets"),
+      fetchDB("cash"),
     ]);
 
-    // ── Assets ──
-    // Cols: A=Name, B=Type, C=Account, D=Entry Date, E=Entry Price,
-    //       F=Qty, G=Total Invested, H=Current Price, I=Current Value,
-    //       J=P&L($), K=P&L(%)
-    const SKIP_NAMES = new Set(["asset name", "total", ""]);
-    const assets = (assetsData.values || [])
-      .filter((r) => !SKIP_NAMES.has((r[0] || "").trim().toLowerCase()))
-      .map((r) => ({
-        name:   r[0] || "",
-        type:   r[1] || "",
-        value:  r[8] || "",   // col I = Current Value
-        pnl:    r[9] || "",   // col J = P&L($)
-        pnlPct: r[10] || "",  // col K = P&L(%)
-      }));
-
-    // ── Free Cash ──
-    // Cols (starting at B): r[0]=Account, r[1]=Category, r[2]=Currency,
-    //                        r[3]=Amount, r[4]=Rate, r[5]=Value USD
-    // Skip section-header / total rows (account field starts with a color circle emoji or keyword)
-    const SKIP_MARKERS = ["🟢", "🟣", "🔴", "🔵", "🟤", "total", "staking"];
-    const cash = (cashData.values || [])
-      .filter((r) => {
-        const account = (r[0] || "").trim();
-        if (!account) return false;
-        const lo = account.toLowerCase();
-        return !SKIP_MARKERS.some((m) => lo.includes(m) || account.includes(m));
-      })
-      .map((r) => ({
-        account:  r[0] || "",
-        category: r[1] || "",
-        value:    r[5] || "",  // col G = Value USD
-      }));
-
-    // ── Compute summary from raw data ──
+    // ── Compute summary ──
     const isFreeCashCat = (cat) => {
-      const lo = (cat || "").toLowerCase().trim();
-      return lo.includes("liquid")   || lo.includes("ліквід")  ||
-             lo.includes("incoming") || lo.includes("приход")  || lo.includes("вхід") ||
-             lo.includes("debt")     || lo.includes("борг")    ||
-             lo.includes("locked")   || lo.includes("заблок");
+      const lo = (cat || "").toLowerCase();
+      return lo.includes("liquid") || lo.includes("incoming") ||
+             lo.includes("debt")   || lo.includes("locked");
     };
-    const isStakingCat = (cat) => {
-      const lo = (cat || "").toLowerCase().trim();
-      return lo.includes("stak") || lo.includes("стейк");
-    };
+    const isStakingCat = (cat) => (cat || "").toLowerCase().includes("stak");
 
     let freeCashTotal = 0, stakingCashTotal = 0;
     cash.forEach((c) => {
-      const v = parseNum(c.value);
-      if (isNaN(v)) return;
-      if (isStakingCat(c.category))      stakingCashTotal += v;  // explicitly Staking
-      else if (isFreeCashCat(c.category)) freeCashTotal   += v;  // 4 known categories
-      // unknown/empty → ignored (section headers already filtered above)
+      const v = c.value;
+      if (v == null || isNaN(v)) return;
+      if (isStakingCat(c.category))       stakingCashTotal += v;
+      else if (isFreeCashCat(c.category)) freeCashTotal    += v;
     });
 
     let assetsTotal = 0, investedTotal = 0, pnlTotal = 0;
     assets.forEach((a) => {
-      const val = parseNum(a.value);
-      const pnl = parseNum(a.pnl);
-      const type = (a.type || "").trim();
-      if (type === "Property" && !isNaN(val)) assetsTotal  += val;
-      if (type === "Crypto"   && !isNaN(val)) investedTotal += val;
-      if (type === "Crypto"   && !isNaN(pnl)) pnlTotal     += pnl;
+      const val = a.value, pnl = a.pnl, type = (a.type || "").trim();
+      if (type === "Property" && val != null) assetsTotal   += val;
+      if (type === "Crypto"   && val != null) investedTotal += val;
+      if (type === "Crypto"   && pnl != null) pnlTotal      += pnl;
     });
 
-    // Net Worth = all buckets (staking cash was already in freeCash before, still counted)
     const netWorth = freeCashTotal + stakingCashTotal + assetsTotal + investedTotal;
-
-    const summary = {
-      netWorth: netWorth,
-      freeCash: freeCashTotal,
-      assets:   assetsTotal,
-      invested: investedTotal,
-      pnl:      pnlTotal,
-      staking:  stakingCashTotal, // only from Free Cash "Staking" category — no double-count with Investment log
+    const summary  = {
+      netWorth, freeCash: freeCashTotal, assets: assetsTotal,
+      invested: investedTotal, pnl: pnlTotal, staking: stakingCashTotal,
     };
 
     renderDashboard(summary, assets, cash);
