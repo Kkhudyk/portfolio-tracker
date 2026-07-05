@@ -90,7 +90,7 @@ export default async function handler(req, res) {
         endDate:   getProp(props, "End Date"),
         status:    getProp(props, "Status"),
       };
-    }).filter(r => r && r.name);
+    }).filter(r => r && (r.name || r.account));
 
     return res.status(200).json({ rows });
   } catch (err) {
