@@ -7,7 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
+  <script>
+    // Apply saved theme before render to prevent flash
+    if (localStorage.getItem("theme") === "light") {
+      document.documentElement.dataset.theme = "light";
+    }
+  </script>
 </head>
 <body>
 
@@ -43,6 +49,7 @@
       </div>
       <div class="header-actions">
         <span class="last-updated" id="last-updated"></span>
+        <button class="btn-icon btn-theme" id="btn-theme">☀</button>
         <button class="btn-icon btn-refresh" id="btn-refresh">↻ Refresh</button>
         <button class="btn-icon btn-logout" id="btn-logout">Sign out</button>
       </div>
@@ -60,6 +67,6 @@
     </main>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

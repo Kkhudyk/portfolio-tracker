@@ -38,6 +38,24 @@ document.getElementById("btn-logout").addEventListener("click", () => {
   showLogin();
 });
 
+const btnTheme = document.getElementById("btn-theme");
+function applyTheme(light) {
+  if (light) {
+    document.documentElement.dataset.theme = "light";
+    btnTheme.textContent = "🌙";
+    localStorage.setItem("theme", "light");
+  } else {
+    delete document.documentElement.dataset.theme;
+    btnTheme.textContent = "☀";
+    localStorage.setItem("theme", "dark");
+  }
+}
+// Init button label to match saved theme
+applyTheme(localStorage.getItem("theme") === "light");
+btnTheme.addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme !== "light");
+});
+
 // declared early so Refresh listener can reference it
 let activeTab    = "dashboard";
 let stakingLoaded = false;
@@ -107,12 +125,12 @@ function pnlSign(v) {
 // ─── Category config ─────────────────────────────────────────────────────────
 
 const CAT_CFG = {
-  liquid:     { emoji: "🟢", label: "Liquid",     color: "#00C805", bg: "#E6FFE6" },
-  incoming:   { emoji: "🟣", label: "Incoming",   color: "#7C3AED", bg: "#F0EBFF" },
-  debt:       { emoji: "🔴", label: "Debt",       color: "#FF3B30", bg: "#FFE5E3" },
-  locked:     { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
-  investment: { emoji: "🔵", label: "Investment", color: "#0066FF", bg: "#E0EDFF" },
-  staking:    { emoji: "💎", label: "Staking",    color: "#7C3AED", bg: "#F0EBFF" },
+  liquid:     { emoji: "🟢", label: "Liquid",     color: "#818CF8", bg: "rgba(129,140,248,.1)" },
+  incoming:   { emoji: "🟣", label: "Incoming",   color: "#A78BFA", bg: "rgba(167,139,250,.1)" },
+  debt:       { emoji: "🔴", label: "Debt",       color: "#FB923C", bg: "rgba(251,146,60,.1)"  },
+  locked:     { emoji: "🔵", label: "Investment", color: "#94A3B8", bg: "rgba(148,163,184,.1)" },
+  investment: { emoji: "🔵", label: "Investment", color: "#94A3B8", bg: "rgba(148,163,184,.1)" },
+  staking:    { emoji: "💎", label: "Staking",    color: "#C084FC", bg: "rgba(192,132,252,.1)" },
 };
 
 function getCatCfg(cat) {
@@ -337,10 +355,10 @@ function drawDonut(netWorth, freeCash, assetsVal, invested, staking) {
   if (!canvas) return;
 
   const segments = [
-    { label: "Free Cash", value: freeCash,  color: "#0066FF" },
-    { label: "Assets",    value: assetsVal, color: "#00C805" },
-    { label: "Crypto",    value: invested,  color: "#FF3B30" },
-    { label: "Staking",   value: staking,   color: "#7C3AED" },
+    { label: "Free Cash", value: freeCash,  color: "#818CF8" },
+    { label: "Assets",    value: assetsVal, color: "#A3A3A3" },
+    { label: "Crypto",    value: invested,  color: "#94A3B8" },
+    { label: "Staking",   value: staking,   color: "#C084FC" },
   ].filter(s => s.value > 0);
 
   const total = segments.reduce((s, x) => s + x.value, 0);
@@ -373,14 +391,17 @@ function drawDonut(netWorth, freeCash, assetsVal, invested, staking) {
     angle += sweep + gap;
   });
 
-  // Center label
+  // Center label — read color from CSS variable
+  const isDark = document.documentElement.dataset.theme !== "light";
+  const labelColor = isDark ? "#52525B" : "#9CA3AF";
+  const valueColor = isDark ? "#FAFAFA"  : "#09090B";
   ctx.textAlign    = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle    = "#9CA3AF";
-  ctx.font         = `500 11px Inter, sans-serif`;
-  ctx.fillText("Net Worth", cx, cy - 11);
-  ctx.fillStyle = "#1A1A1A";
-  ctx.font      = `bold 15px "SF Mono", monospace`;
+  ctx.fillStyle    = labelColor;
+  ctx.font         = `500 10px Inter, sans-serif`;
+  ctx.fillText("NET WORTH", cx, cy - 11);
+  ctx.fillStyle = valueColor;
+  ctx.font      = `600 14px "SF Mono", monospace`;
   ctx.fillText(fmtUSD(netWorth), cx, cy + 9);
 
   // Legend
@@ -432,7 +453,7 @@ function drawBarChart(assets) {
   items.forEach((item, i) => {
     const y    = padTop + i * rowH;
     const barW = Math.max(4, (item.value / maxVal) * barMaxW);
-    const color = item.type === "Crypto" ? "#7C3AED" : "#00C805";
+    const color = item.type === "Crypto" ? "#818CF8" : "#71717A";
     const barY  = y + (rowH - barH) / 2;
 
     // Bar background
