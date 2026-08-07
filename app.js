@@ -140,7 +140,7 @@ async function loadData() {
 // ── Render all ────────────────────────────────────────────────────
 
 function renderAll(d) {
-  const { netWorth, liquid, incoming, propertiesTotal, cryptoTotal, stakingTotal, cryptoPnL, stakingProfitActive, debt } = d;
+  const { netWorth, liquid, incoming, locked, propertiesTotal, cryptoTotal, stakingTotal, cryptoPnL, stakingProfitActive, debt } = d;
 
   const allocation = [
     { label: "Ліквід",           value: liquid,          color: "#3b6e5e" },
