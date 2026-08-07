@@ -174,9 +174,9 @@ function renderAll(d) {
 
     <div class="stats-grid">
       <div class="card stat-card">
-        <div class="section-label">Вільний ліквід</div>
-        <div class="stat-value">${fmt(liquid)}</div>
-        <div class="stat-sub">готово до дії зараз</div>
+        <div class="section-label">Вільний капітал</div>
+        <div class="stat-value">${fmt(liquid + incoming + locked - debt)}</div>
+        <div class="stat-sub">без стейкінгу</div>
       </div>
       <div class="card stat-card">
         <div class="section-label">В стейкінгу</div>
