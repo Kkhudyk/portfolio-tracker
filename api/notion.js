@@ -6,6 +6,7 @@ const DB_IDS = {
   cash:       "27bf5a57c00a4aeabad9c979c74dad87",
   staking:    "03ce408d1f2141cba92cba17da81513e",
   properties: "4fcbe88a82824442937a58bf9ea2722d",
+  history:    "b9063f3ae34a4704bdfa8da503ccfc57",
 };
 
 function getProp(props, name) {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "NOTION_API_KEY not set" });
 
   const db = req.query.db;
-  if (!db || !DB_IDS[db]) return res.status(400).json({ error: "Invalid db param. Use: assets | cash | staking" });
+  if (!db || !DB_IDS[db]) return res.status(400).json({ error: "Invalid db param. Use: assets | cash | staking | properties | history" });
 
   try {
     const pages = await queryAll(DB_IDS[db], apiKey);
@@ -86,6 +87,16 @@ export default async function handler(req, res) {
         value: getProp(props, "Value USD"),
         description: getProp(props, "Description"),
       };
+      if (db === "history") return {
+        name:       getProp(props, "Name"),
+        date:       getProp(props, "Date"),
+        netWorth:   getProp(props, "Net Worth"),
+        freeCash:   getProp(props, "Free Cash"),
+        staking:    getProp(props, "Staking"),
+        crypto:     getProp(props, "Crypto"),
+        properties: getProp(props, "Properties"),
+        note:       getProp(props, "Note"),
+      };
       if (db === "staking") return {
         name:      getProp(props, "Name"),
         platform:  getProp(props, "Platform"),
@@ -96,7 +107,7 @@ export default async function handler(req, res) {
         endDate:   getProp(props, "End Date"),
         status:    getProp(props, "Status"),
       };
-    }).filter(r => r && (r.name || r.account));
+    }).filter(r => r && (r.name || r.account || r.date));
 
     return res.status(200).json({ rows });
   } catch (err) {

@@ -87,8 +87,8 @@ async function loadData() {
     `<div class="loading"><div class="spinner"></div><p>Завантаження даних…</p></div>`;
 
   try {
-    const [assetsRows, cashRows, stakingRows, propertiesRows] = await Promise.all([
-      fetchDB("assets"), fetchDB("cash"), fetchDB("staking"), fetchDB("properties"),
+    const [assetsRows, cashRows, stakingRows, propertiesRows, historyRows] = await Promise.all([
+      fetchDB("assets"), fetchDB("cash"), fetchDB("staking"), fetchDB("properties"), fetchDB("history"),
     ]);
 
     const cash = cashRows.map(r => ({ ...r, cat: normCat(r.category) }));
@@ -116,11 +116,15 @@ async function loadData() {
 
     const netWorth = liquid + incoming + locked - debt + propertiesTotal + cryptoTotal + stakingTotal;
 
+    const history = historyRows
+      .filter(r => r.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
     cachedData = {
       netWorth, liquid, incoming, locked, debt,
       propertiesTotal, cryptoTotal, cryptoPnL,
       stakingTotal, stakingProfitActive, stakingAllTimeProfit,
-      assetsRows, cash, stakingActive, stakingClosed, propertiesRows,
+      assetsRows, cash, stakingActive, stakingClosed, propertiesRows, history,
     };
 
     const now = new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
@@ -192,7 +196,7 @@ function renderAll(d) {
     </div>
 
     <div class="tab-bar-wrap">
-      ${["overview:Огляд","staking:Стейкінг","crypto:Крипта","cash:Готівка"].map(s => {
+      ${["overview:Огляд","staking:Стейкінг","crypto:Крипта","cash:Готівка","history:Історія"].map(s => {
         const [key, label] = s.split(":");
         return `<button class="tab-btn ${activeTab === key ? "active" : ""}" data-tab="${key}">${label}</button>`;
       }).join("")}
@@ -222,6 +226,7 @@ function renderTab(d) {
   else if (activeTab === "staking")  el.innerHTML = renderStaking(d);
   else if (activeTab === "crypto")   el.innerHTML = renderCrypto(d);
   else if (activeTab === "cash")     el.innerHTML = renderCash(d);
+  else if (activeTab === "history")  el.innerHTML = renderHistory(d);
 }
 
 // ── Tab: Overview ─────────────────────────────────────────────────
@@ -388,6 +393,95 @@ function renderCash(d) {
       <div class="card section-card">
         <div class="section-label">По акаунтах</div>
         <div class="list">${rows}</div>
+      </div>
+    </div>`;
+}
+
+// ── Tab: History ──────────────────────────────────────────────────
+
+function renderHistory(d) {
+  if (!d.history.length) {
+    return `
+      <div class="tab-space">
+        <div class="card section-card">
+          <div class="section-label">Чекпоінти</div>
+          <p class="empty" style="padding:.5rem 0">
+            Ще немає жодного чекпоінту.<br>
+            Додай перший рядок у базу <b>📅 Portfolio History</b> в Notion після наступного оновлення даних.
+          </p>
+        </div>
+      </div>`;
+  }
+
+  // Find max net worth for bar scaling
+  const maxNW = Math.max(...d.history.map(r => r.netWorth || 0));
+
+  // Delta vs previous checkpoint
+  const rows = d.history.map((r, i) => {
+    const prev = d.history[i + 1];
+    const delta = prev && r.netWorth != null && prev.netWorth != null
+      ? r.netWorth - prev.netWorth : null;
+    const pct = maxNW > 0 ? ((r.netWorth || 0) / maxNW) * 100 : 0;
+
+    const dateStr = r.date
+      ? new Date(r.date).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" })
+      : "—";
+
+    const segments = [
+      { label: "Ліквід",    value: r.freeCash,   color: "#3b6e5e" },
+      { label: "Нерухомість", value: r.properties, color: "#8a8578" },
+      { label: "Крипта",    value: r.crypto,     color: "#b3593f" },
+      { label: "Стейкінг",  value: r.staking,    color: "#c99b3f" },
+    ].filter(s => s.value > 0);
+
+    const total = segments.reduce((s, x) => s + x.value, 0);
+    const miniBar = total > 0
+      ? segments.map(s =>
+          `<div style="width:${((s.value/total)*100).toFixed(1)}%;background:${s.color};height:100%"></div>`
+        ).join("")
+      : "";
+
+    return `
+      <div class="history-row">
+        <div class="history-row-top">
+          <div>
+            <div class="row-name">${r.name || dateStr}</div>
+            <div class="row-sub">${r.name ? dateStr : ""}${r.note ? (r.name ? " · " : "") + r.note : ""}</div>
+          </div>
+          <div class="text-right">
+            <div class="row-value">${r.netWorth != null ? fmt(r.netWorth) : "—"}</div>
+            ${delta != null
+              ? `<div class="row-sub ${delta >= 0 ? "green" : "red"}">${delta >= 0 ? "+" : ""}${fmt(delta)}</div>`
+              : ""}
+          </div>
+        </div>
+        ${r.netWorth != null ? `
+        <div class="history-bar-wrap">
+          <div class="history-bar-track">
+            <div class="history-bar-fill" style="width:${pct.toFixed(1)}%">
+              <div style="display:flex;height:100%;border-radius:999px;overflow:hidden">${miniBar}</div>
+            </div>
+          </div>
+        </div>` : ""}
+        ${segments.length ? `
+        <div class="history-breakdown">
+          ${segments.map(s => `
+            <span class="history-seg">
+              <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s.color};vertical-align:middle;margin-right:3px"></span>
+              ${s.label} ${fmt(s.value)}
+            </span>`).join("")}
+        </div>` : ""}
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="tab-space">
+      <div class="card section-card">
+        <div class="section-label">Чекпоінти (${d.history.length})</div>
+        <div class="history-list">${rows}</div>
+      </div>
+      <div style="font-size:.72rem;color:#a8a29e;text-align:center;padding:.5rem 0">
+        Щоб додати чекпоінт — відкрий <b>📅 Portfolio History</b> в Notion і заповни новий рядок
       </div>
     </div>`;
 }
