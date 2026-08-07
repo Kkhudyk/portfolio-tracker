@@ -1,72 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portfolio</title>
+  <title>Фінанси</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=6" />
-  <script>
-    // Apply saved theme before render to prevent flash
-    if (localStorage.getItem("theme") === "light") {
-      document.documentElement.dataset.theme = "light";
-    }
-  </script>
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 
-  <!-- ── LOGIN ── -->
+  <!-- LOGIN -->
   <div id="login-screen">
     <div class="login-card">
-      <div class="login-logo">₿</div>
-      <h1>Portfolio</h1>
-      <p>Sign in to view your dashboard</p>
+      <div class="login-logo">💰</div>
+      <h1>Фінанси</h1>
+      <p>Введіть пароль для перегляду</p>
       <form id="login-form">
-        <div class="input-group">
-          <span class="icon">🔑</span>
-          <input
-            id="password-input"
-            type="password"
-            placeholder="Enter password"
-            autocomplete="current-password"
-            required
-          />
-        </div>
-        <button class="btn-primary" type="submit">Sign in</button>
+        <input id="password-input" type="password" placeholder="Пароль" autocomplete="current-password" required />
+        <button type="submit">Увійти</button>
         <div class="login-error" id="login-error"></div>
       </form>
     </div>
   </div>
 
-  <!-- ── APP ── -->
-  <div id="app">
-    <header>
-      <div class="header-brand">
-        <div class="brand-dot"></div>
-        Portfolio
-      </div>
-      <div class="header-actions">
-        <span class="last-updated" id="last-updated"></span>
-        <button class="btn-icon btn-theme" id="btn-theme">☀</button>
-        <button class="btn-icon btn-refresh" id="btn-refresh">↻ Refresh</button>
-        <button class="btn-icon btn-logout" id="btn-logout">Sign out</button>
-      </div>
-    </header>
+  <!-- APP -->
+  <div id="app" style="display:none">
+    <div class="container">
 
-    <!-- Tab navigation -->
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
-      <button class="tab-btn" data-tab="staking">💎 Staking Investment</button>
+      <div class="page-header">
+        <h1 class="page-title">Фінанси</h1>
+        <div class="header-right">
+          <span id="last-updated" class="last-updated"></span>
+          <button id="btn-refresh" class="btn-ghost" title="Оновити">↻</button>
+          <button id="btn-logout" class="btn-ghost">Вийти</button>
+        </div>
+      </div>
+
+      <div id="content"></div>
+
     </div>
-
-    <main>
-      <div id="dashboard-content"></div>
-      <div id="staking-content" style="display:none"></div>
-    </main>
   </div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
